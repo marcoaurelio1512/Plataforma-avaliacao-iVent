@@ -4,9 +4,17 @@
  */
 type Level = "info" | "warn" | "error";
 
+/** Texto legível: o Railway exibe o campo `message` das linhas JSON. */
+function describe(event: string, data?: Record<string, unknown>): string {
+  const err = data?.error as { message?: string } | undefined;
+  if (err?.message) return `${event}: ${err.message}`;
+  const extra = data && Object.keys(data).length ? ` ${JSON.stringify(data)}` : "";
+  return `${event}${extra}`.slice(0, 500);
+}
+
 function write(level: Level, event: string, data?: Record<string, unknown>): void {
   if (process.env.LOG_SILENT === "true") return;
-  const line = JSON.stringify({ ts: new Date().toISOString(), level, event, ...data });
+  const line = JSON.stringify({ message: describe(event, data), level, ts: new Date().toISOString(), event, ...data });
   if (level === "error") process.stderr.write(`${line}\n`);
   else process.stdout.write(`${line}\n`);
 }
