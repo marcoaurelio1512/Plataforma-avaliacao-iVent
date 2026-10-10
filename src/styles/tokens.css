@@ -1,0 +1,152 @@
+/**
+ * Tokens do design system — herdados do iVent NeoPed.
+ *
+ * Direção visual: instrumento clínico. Fundo grafite azulado (nunca preto puro)
+ * e cor semântica: azul = acento/ventilação, verde-água = favorável/oxigenação,
+ * âmbar = atenção, vermelho = crítico. Nenhum valor de cor, espaçamento ou
+ * tipografia deve ser escrito fora deste arquivo.
+ */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-section: clamp(2rem, 1.4rem + 2.4vw, 3.5rem);
+
+  --font-sans: "SF Pro Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-display: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  --font-xs: 0.72rem;
+  --font-sm: 0.82rem;
+  --font-md: 0.95rem;
+  --font-lg: 1.125rem;
+  --font-xl: clamp(1.25rem, 1.1rem + 0.6vw, 1.6rem);
+  --font-2xl: clamp(1.6rem, 1.2rem + 1.6vw, 2.4rem);
+  --font-hero: clamp(2rem, 1.3rem + 3vw, 3.4rem);
+  --font-num: clamp(1.5rem, 1.2rem + 1.1vw, 2.2rem);
+  --font-num-lg: clamp(2rem, 1.4rem + 2.4vw, 3.4rem);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --surface-0: #131a25;
+  --surface-1: #1a2230;
+  --surface-2: #222c3d;
+  --surface-3: #2c3850;
+  --surface-trace: #141c28;
+
+  --text: #e8eef6;
+  --text-muted: #93a0b5;
+  --text-dim: #8b97ab;
+  --text-on-accent: #ffffff;
+
+  --accent: #4f8fd4;
+  --accent-strong: #6aa8ea;
+  --accent-soft: rgba(79, 143, 212, 0.16);
+  --warning: #e8b84a;
+  --warning-soft: rgba(232, 184, 74, 0.16);
+  --critical: #ef6b6b;
+  --critical-soft: rgba(239, 107, 107, 0.15);
+  --ok: #3d9a6a;
+  --oxygenation: #3ecfbf;
+  --oxygenation-soft: rgba(62, 207, 191, 0.14);
+  --ventilation: #7eb6ff;
+  --spontaneous: #b98cf0;
+
+  /* Escala divergente 1→5 (gráficos de distribuição). */
+  --scale-1: #ef6b6b;
+  --scale-2: #ee9a6f;
+  --scale-3: #7d8aa0;
+  --scale-4: #5fc2b6;
+  --scale-5: #3ecfbf;
+
+  /* Séries de grupos (comparação residentes × fisioterapeutas). */
+  /* Ordem categórica fixa, validada (CVD/visão normal/contraste) no fundo escuro. */
+  --series-a: #3987e5;
+  --series-b: #d95926;
+  --series-c: #199e70;
+  --series-d: #c98500;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.45);
+  --focus-ring: 0 0 0 3px rgba(106, 168, 234, 0.55);
+
+  --axis-line: rgba(255, 255, 255, 0.18);
+  --axis-grid: rgba(255, 255, 255, 0.07);
+  --axis-text: #7b8798;
+
+  /* Grade de monitor (textura de fundo). */
+  --trace-grid: rgba(126, 182, 255, 0.05);
+
+  --touch-min: 48px;
+  --duration-fast: 120ms;
+  --duration-normal: 220ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --sidebar-w: 248px;
+  --content-max: 1280px;
+
+  color-scheme: dark;
+}
+
+/* Modo claro: papel clínico. Mesma linguagem, contraste ajustado. */
+:root[data-theme="light"] {
+  --surface-0: #e6ebf3;
+  --surface-1: #f4f7fb;
+  --surface-2: #ffffff;
+  --surface-3: #dce4ef;
+  --surface-trace: #f7f9fc;
+
+  --text: #1a2230;
+  --text-muted: #4a586e;
+  --text-dim: #566378;
+
+  --accent: #2d6bb8;
+  --accent-strong: #1e5aa3;
+  --accent-soft: rgba(45, 107, 184, 0.12);
+  --warning: #855a00;
+  --warning-soft: rgba(196, 146, 26, 0.14);
+  --critical: #ad2a2a;
+  --critical-soft: rgba(214, 69, 69, 0.11);
+  --ok: #2d8a58;
+  --oxygenation: #0b6b60;
+  --oxygenation-soft: rgba(26, 154, 140, 0.12);
+  --ventilation: #2f6fbd;
+  --spontaneous: #7b4ec4;
+
+  --scale-1: #d64545;
+  --scale-2: #e0875a;
+  --scale-3: #9aa6b8;
+  --scale-4: #4aa89c;
+  --scale-5: #13877b;
+
+  --series-a: #2a78d6;
+  --series-b: #eb6834;
+  --series-c: #1baf7a;
+  --series-d: #eda100;
+
+  --border: rgba(18, 28, 44, 0.12);
+  --border-strong: rgba(18, 28, 44, 0.22);
+  --shadow-sm: 0 1px 2px rgba(18, 28, 44, 0.08);
+  --shadow: 0 10px 28px rgba(18, 28, 44, 0.12);
+  --shadow-lg: 0 24px 50px rgba(18, 28, 44, 0.16);
+  --focus-ring: 0 0 0 3px rgba(45, 107, 184, 0.4);
+
+  --axis-line: rgba(18, 28, 44, 0.22);
+  --axis-grid: rgba(18, 28, 44, 0.08);
+  --axis-text: #4a586e;
+  --trace-grid: rgba(45, 107, 184, 0.06);
+
+  color-scheme: light;
+}
