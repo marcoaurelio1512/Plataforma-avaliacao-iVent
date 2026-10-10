@@ -32,6 +32,7 @@ interface SubmitOptions {
   startedAt?: number;
   website?: string;
   versionId?: string;
+  inviteCode?: string;
 }
 
 async function submit(o: SubmitOptions, payload?: Json): Promise<Response> {
@@ -61,6 +62,7 @@ async function submit(o: SubmitOptions, payload?: Json): Promise<Response> {
       startToken: signStart(slug, o.startedAt ?? Date.now() - 120_000, testConfig.ipHashSalt),
       deviceClass: "mobile",
       website: o.website ?? "",
+      inviteCode: o.inviteCode,
       profile: { profession: o.profession, experienceYears: "1to3", simulatorExperience: "basic", iventExperience: "first" },
       answers,
     }),
@@ -498,5 +500,81 @@ describe("persistência após reinício do servidor", () => {
     expect(d.overview.completedResponses).toBeGreaterThanOrEqual(1);
     const [{ n }] = await query<{ n: number }>(`SELECT count(*) AS n FROM survey_responses`);
     expect(n).toBe(9);
+  });
+});
+
+describe("convites de uso único", () => {
+  let inviteSurveyId: string;
+  let inviteSlug: string;
+  const ALL4 = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
+
+  it("pesquisa que exige convite não mostra perguntas sem código válido", async () => {
+    const copy = await admin.json(`/api/admin/surveys/${surveyId}/duplicate`, { method: "POST" });
+    inviteSurveyId = copy.id;
+    inviteSlug = copy.slug;
+    await admin.json(`/api/admin/surveys/${copy.id}/meta`, { method: "PUT", body: { requireInvite: true } });
+    await admin.json(`/api/admin/surveys/${copy.id}/status`, { method: "POST", body: { action: "publish" } });
+    const res = await app.request(`/api/public/surveys/${inviteSlug}`);
+    const body = ((await res.json()) as Json).data;
+    expect(body.acceptingResponses).toBe(false);
+    expect(body.inviteStatus).toBe("missing");
+    expect(body.questions).toBeUndefined();
+    const bad = ((await (await app.request(`/api/public/surveys/${inviteSlug}?c=naoexiste123`)).json()) as Json).data;
+    expect(bad.inviteStatus).toBe("invalid");
+  });
+
+  it("gera convites, aceita cada um uma única vez e registra o uso", async () => {
+    const created = await admin.json(`/api/admin/surveys/${inviteSurveyId}/invites`, { method: "POST", body: { count: 3, label: "Lote teste" } });
+    expect(created.created).toBe(3);
+    const invites = await admin.json(`/api/admin/surveys/${inviteSurveyId}/invites`);
+    expect(invites).toHaveLength(3);
+    expect(invites[0].url).toBe(`https://avaliacao.exemplo.com/r/${inviteSlug}?c=${invites[0].code}`);
+    const code = invites[0].code;
+
+    const prevSlug = slug;
+    slug = inviteSlug;
+    try {
+      const payload = ((await (await app.request(`/api/public/surveys/${inviteSlug}?c=${code}`)).json()) as Json).data;
+      expect(payload.acceptingResponses).toBe(true);
+      expect(payload.inviteRequired).toBe(true);
+
+      const noCode = await submit({ profession: "physiotherapist", scores: ALL4 }, payload);
+      expect(noCode.status).toBe(400);
+
+      const key = idempotencyKey();
+      const first = await submit({ profession: "physiotherapist", scores: ALL4, inviteCode: code, key }, payload);
+      expect(first.status).toBe(201);
+      // Reenvio idêntico (rede instável): continua idempotente, sem erro de convite.
+      const retry = await submit({ profession: "physiotherapist", scores: ALL4, inviteCode: code, key }, payload);
+      expect(retry.status).toBe(200);
+      // Mesmo convite, nova resposta: recusado.
+      const reuse = await submit({ profession: "physiotherapist", scores: ALL4, inviteCode: code }, payload);
+      expect(reuse.status).toBe(409);
+      const used = ((await (await app.request(`/api/public/surveys/${inviteSlug}?c=${code}`)).json()) as Json).data;
+      expect(used.inviteStatus).toBe("used");
+
+      // Convite revogado não serve mais.
+      await admin.json(`/api/admin/surveys/${inviteSurveyId}/invites/${invites[1].id}/revoke`, { method: "POST" });
+      const revoked = await submit({ profession: "physiotherapist", scores: ALL4, inviteCode: invites[1].code }, payload);
+      expect(revoked.status).toBe(409);
+    } finally {
+      slug = prevSlug;
+    }
+
+    const list = await admin.json("/api/admin/surveys");
+    const s = list.find((x: Json) => x.id === inviteSurveyId);
+    expect(s.requireInvite).toBe(true);
+    expect(s.invitesUsed).toBe(1);
+    expect(s.invitesTotal).toBe(2);
+  });
+
+  it("exporta convites em CSV e folha de QR Codes em PDF", async () => {
+    const csv = await (await admin.request(`/api/admin/surveys/${inviteSurveyId}/invites.csv`)).text();
+    expect(csv).toContain("utilizado");
+    expect(csv).toContain("revogado");
+    expect(csv).toContain("disponível");
+    const pdf = await admin.request(`/api/admin/surveys/${inviteSurveyId}/invites/qr.pdf`);
+    expect(pdf.headers.get("content-type")).toBe("application/pdf");
+    expect(Buffer.from(await pdf.arrayBuffer()).subarray(0, 5).toString()).toBe("%PDF-");
   });
 });

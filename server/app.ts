@@ -15,6 +15,7 @@ import { handleError, HttpError } from "./http.ts";
 import { createAdminDataRoutes } from "./routes/adminData.ts";
 import { createAdminSettingsRoutes } from "./routes/adminSettings.ts";
 import { createAdminSurveyRoutes } from "./routes/adminSurveys.ts";
+import { createAdminInviteRoutes } from "./routes/adminInvites.ts";
 import { createPublicRoutes } from "./routes/public.ts";
 import { createReportRoutes } from "./routes/reports.ts";
 import { clientIp, hashIp, requireCsrfHeader } from "./security.ts";
@@ -86,6 +87,7 @@ export function createApp(config: AppConfig) {
 
   app.use("/api/admin/*", requireCsrfHeader, requireAdmin);
   app.route("/", createAdminSurveyRoutes());
+  app.route("/", createAdminInviteRoutes());
   app.route("/", createAdminDataRoutes());
   app.route("/", createAdminSettingsRoutes());
   app.route("/", createReportRoutes());

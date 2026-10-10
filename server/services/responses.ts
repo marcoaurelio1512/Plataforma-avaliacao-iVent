@@ -10,6 +10,7 @@ import { badRequest, conflict, notFound } from "../http.ts";
 import type { SubmissionInput } from "../validation.ts";
 import { validateAnswers } from "./answerValidation.ts";
 import { getVersionQuestions } from "./surveys.ts";
+import { consumeInvite } from "./invites.ts";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -47,8 +48,8 @@ export async function submitResponse(slug: string, input: SubmissionInput): Prom
 }
 
 async function insertSubmission(slug: string, input: SubmissionInput): Promise<SubmissionResult> {
-  const survey = await queryOne<{ id: string; status: string; ivent_version_id: string | null }>(
-    `SELECT id, status, ivent_version_id FROM surveys WHERE slug = $1`,
+  const survey = await queryOne<{ id: string; status: string; ivent_version_id: string | null; require_invite: boolean }>(
+    `SELECT id, status, ivent_version_id, require_invite FROM surveys WHERE slug = $1`,
     [slug],
   );
   if (!survey) throw notFound("Pesquisa não encontrada.");
@@ -61,6 +62,7 @@ async function insertSubmission(slug: string, input: SubmissionInput): Promise<S
   }
 
   if (survey.status !== "published") throw conflict("Esta pesquisa não está recebendo respostas no momento.");
+  if (survey.require_invite && !input.inviteCode) throw badRequest("Esta pesquisa exige um convite. Use o link ou QR Code individual que você recebeu.");
 
   const version = await queryOne<{ id: string }>(`SELECT id FROM survey_versions WHERE id = $1 AND survey_id = $2`, [
     input.versionId,
@@ -91,6 +93,15 @@ async function insertSubmission(slug: string, input: SubmissionInput): Promise<S
     );
     if (!response.rows[0]) throw new DuplicateRace();
     const responseId = response.rows[0].id;
+    if (survey.require_invite) {
+      await consumeInvite(client, survey.id, input.inviteCode!, responseId);
+    } else if (input.inviteCode) {
+      // Pesquisa aberta: um convite válido é apenas registrado como usado (sem bloquear).
+      await client.query(
+        `UPDATE survey_invites SET used_at = now(), response_id = $3 WHERE survey_id = $1 AND code = $2 AND used_at IS NULL AND revoked_at IS NULL`,
+        [survey.id, input.inviteCode, responseId],
+      );
+    }
     for (const a of answers) {
       const inserted = await client.query<{ id: string }>(
         `INSERT INTO answers (response_id, question_id, numeric_value, text_value, choice_values, special)

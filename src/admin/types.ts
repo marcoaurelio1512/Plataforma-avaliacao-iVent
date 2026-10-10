@@ -16,6 +16,9 @@ export interface SurveySummary {
   publishedAt: string | null;
   closedAt: string | null;
   publicUrl: string;
+  requireInvite: boolean;
+  invitesTotal: number;
+  invitesUsed: number;
 }
 
 export interface SurveyDetail extends SurveySummary {

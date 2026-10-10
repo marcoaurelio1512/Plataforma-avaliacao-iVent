@@ -1,9 +1,9 @@
 /**
  * Fluxo do participante: Bem-vindo → Perfil → Avaliação → Sua opinião → Revisar → Enviar → Obrigado.
  */
-import { ArrowLeft, ArrowRight, Lock, Send } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, KeyRound, Lock, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import type { AnswerInput } from "../../shared/domain.ts";
 import { Brand } from "../components/Brand.tsx";
 import { ErrorState, Loading } from "../components/States.tsx";
@@ -21,11 +21,37 @@ function deviceClass(): "mobile" | "tablet" | "desktop" {
   return w < 640 ? "mobile" : w < 1024 ? "tablet" : "desktop";
 }
 
+const INVITE_MESSAGES: Record<NonNullable<PublicSurvey["inviteStatus"]>, string> = {
+  missing: "Esta pesquisa é respondida por convite. Use o link ou o QR Code individual que você recebeu.",
+  invalid: "Este convite não é válido. Confira se o link foi copiado por inteiro ou peça um novo convite.",
+  used: "Este convite já foi utilizado — cada convite vale para uma única resposta. Obrigado por participar!",
+  revoked: "Este convite foi cancelado. Peça um novo convite à equipe da pesquisa.",
+};
+
+/** Marca local de "já respondeu" (lembrete por aparelho; não é a garantia — essa é o convite). */
+function doneKey(slug: string, code: string | null): string {
+  return `iva-done:${slug}${code ? `:${code}` : ""}`;
+}
+
+function readDone(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 export default function SurveyPage({ preview }: { preview?: PublicSurvey } = {}) {
   const { slug = "" } = useParams();
+  const [params] = useSearchParams();
+  const code = preview ? null : params.get("c");
+  // Lido uma única vez ao abrir: o envio desta sessão não troca o "Obrigado" pelo aviso.
+  const [doneAt] = useState(() => (preview ? null : readDone(doneKey(slug, code))));
+  const [ignoreDone, setIgnoreDone] = useState(false);
+  const alreadyDone = ignoreDone ? null : doneAt;
   const { data, error, loading, reload } = useAsync<PublicSurvey>(
-    (signal) => (preview ? Promise.resolve(preview) : api<PublicSurvey>(`/api/public/surveys/${slug}`, { signal })),
-    [slug, preview],
+    (signal) => (preview ? Promise.resolve(preview) : api<PublicSurvey>(`/api/public/surveys/${slug}`, { query: { c: code }, signal })),
+    [slug, preview, code],
   );
 
   useEffect(() => {
@@ -44,22 +70,40 @@ export default function SurveyPage({ preview }: { preview?: PublicSurvey } = {})
       <main className="participant-main">
         {loading && <Loading label="Carregando questionário…" />}
         {error != null && <ErrorState error={error} onRetry={reload} />}
-        {data && !data.acceptingResponses && !preview && (
+        {data && alreadyDone && data.acceptingResponses && (
+          <section className="thanks">
+            <div className="thanks-icon"><CheckCircle2 aria-hidden="true" /></div>
+            <h1 className="welcome-title">Você já respondeu esta pesquisa neste aparelho</h1>
+            <p className="muted">Resposta enviada em {new Date(alreadyDone).toLocaleString("pt-BR")}. Obrigado por participar!</p>
+            <p className="hint">Se outra pessoa vai responder usando este mesmo aparelho, toque abaixo.</p>
+            <button type="button" className="btn btn-lg" onClick={() => setIgnoreDone(true)}>Outra pessoa vai responder</button>
+          </section>
+        )}
+        {data && !data.acceptingResponses && data.inviteStatus && !preview && (
+          <section className="thanks">
+            <div className="thanks-icon is-muted"><KeyRound aria-hidden="true" /></div>
+            <h1 className="welcome-title">{data.title}</h1>
+            <p className="muted">{INVITE_MESSAGES[data.inviteStatus]}</p>
+          </section>
+        )}
+        {data && !data.acceptingResponses && !data.inviteStatus && !preview && (
           <section className="thanks">
             <div className="thanks-icon is-muted"><Lock aria-hidden="true" /></div>
             <h1 className="welcome-title">{data.title}</h1>
             <p className="muted">{data.status === "closed" ? "Esta pesquisa foi encerrada e não está mais recebendo respostas." : "Esta pesquisa ainda não está aberta para respostas."}</p>
           </section>
         )}
-        {data && (data.acceptingResponses || preview) && data.questions && <Flow survey={data} preview={Boolean(preview)} />}
+        {data && (data.acceptingResponses || preview) && data.questions && !alreadyDone && (
+          <Flow survey={data} preview={Boolean(preview)} inviteCode={code} onDone={() => { try { localStorage.setItem(doneKey(slug, code), new Date().toISOString()); } catch { /* sem armazenamento: segue sem lembrete */ } }} />
+        )}
       </main>
     </div>
   );
 }
 
-function Flow({ survey, preview }: { survey: PublicSurvey; preview: boolean }) {
+function Flow({ survey, preview, inviteCode, onDone }: { survey: PublicSurvey; preview: boolean; inviteCode: string | null; onDone: () => void }) {
   const questions = survey.questions!;
-  const storageKey = preview ? null : `iva-draft:${survey.slug}:${survey.versionId}`;
+  const storageKey = preview ? null : `iva-draft:${survey.slug}:${survey.versionId}${inviteCode ? `:${inviteCode}` : ""}`;
   const { draft, setDraft, clear, restart, restored } = useDraft(storageKey);
   const [showError, setShowError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -163,11 +207,13 @@ function Flow({ survey, preview }: { survey: PublicSurvey; preview: boolean }) {
           startToken: draft.startToken ?? survey.startToken ?? "",
           deviceClass: deviceClass(),
           website: (document.getElementById("iva-website") as HTMLInputElement | null)?.value ?? "",
+          inviteCode: inviteCode ?? undefined,
           profile: draft.profile,
           answers: questions.map((q) => draft.answers[q.id!]).filter((a): a is AnswerInput => Boolean(a)),
         },
       });
       clear();
+      onDone();
       setDone(true);
       window.scrollTo({ top: 0 });
     } catch (err) {

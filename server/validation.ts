@@ -63,6 +63,7 @@ export type QuestionInput = z.infer<typeof questionInputSchema>;
 
 export const surveyMetaSchema = z.object({
   iventVersionId: z.uuid().nullable().optional(),
+  requireInvite: z.boolean().optional(),
   consentText: optionalText(20_000),
   participantInfo: optionalText(20_000),
   protocolNumber: optionalText(120),
@@ -87,6 +88,7 @@ export const submissionSchema = z.object({
   // Emitido pelo servidor ao abrir o formulário (HMAC): o tempo mínimo não depende do relógio do cliente.
   startToken: z.string().max(80),
   deviceClass: z.enum(["mobile", "tablet", "desktop"]).nullish(),
+  inviteCode: z.string().regex(/^[a-z0-9]{8,24}$/).nullish(),
   // Campo-armadilha: invisível para pessoas, preenchido por robôs.
   website: z.string().max(200).optional(),
   profile: z.object({

@@ -12,6 +12,7 @@ import { log } from "../logger.ts";
 import { RateLimiter, signStart, verifyStart } from "../security.ts";
 import { submitResponse } from "../services/responses.ts";
 import { getVersionQuestions } from "../services/surveys.ts";
+import { inviteStatus } from "../services/invites.ts";
 import { submissionSchema } from "../validation.ts";
 
 export const submissionLimiter = new RateLimiter(30, 60 * 60 * 1000);
@@ -33,9 +34,10 @@ export async function publicSurveyPayload(where: { slug?: string; id?: string })
     lead_researcher: string | null;
     protocol_number: string | null;
     ivent_label: string | null;
+    require_invite: boolean;
   }>(
     `SELECT s.id, s.slug, s.status, s.current_version_id, s.consent_text, s.participant_info, s.institution,
-            s.lead_researcher, s.protocol_number, iv.label AS ivent_label
+            s.lead_researcher, s.protocol_number, iv.label AS ivent_label, s.require_invite
        FROM surveys s LEFT JOIN ivent_versions iv ON iv.id = s.ivent_version_id
       WHERE ${where.slug ? "s.slug = $1" : "s.id = $1"}`,
     [where.slug ?? where.id],
@@ -49,6 +51,8 @@ export async function publicSurveyPayload(where: { slug?: string; id?: string })
     `SELECT code, label FROM professional_categories WHERE active ORDER BY position, label`,
   );
   return {
+    surveyId: survey.id,
+    inviteRequired: survey.require_invite,
     slug: survey.slug,
     status: survey.status,
     acceptingResponses: survey.status === "published",
@@ -83,10 +87,16 @@ export function createPublicRoutes() {
     if (!/^[a-z0-9]{6,40}$/.test(slug)) throw notFound("Pesquisa não encontrada.");
     const payload = await publicSurveyPayload({ slug });
     // Pesquisa não publicada: só o título e o estado, sem as perguntas.
+    const { surveyId, ...publicPayload } = payload;
     if (!payload.acceptingResponses) {
       return ok(c, { slug: payload.slug, status: payload.status, acceptingResponses: false, title: payload.title });
     }
-    return ok(c, { ...payload, startToken: signStart(slug, Date.now(), c.get("config").ipHashSalt) });
+    if (payload.inviteRequired) {
+      const status = await inviteStatus(surveyId, c.req.query("c"));
+      // Sem convite válido: só o título e o motivo, sem as perguntas.
+      if (status !== "valid") return ok(c, { slug: payload.slug, status: payload.status, acceptingResponses: false, inviteRequired: true, inviteStatus: status, title: payload.title });
+    }
+    return ok(c, { ...publicPayload, startToken: signStart(slug, Date.now(), c.get("config").ipHashSalt) });
   });
 
   app.post("/api/public/surveys/:slug/responses", async (c) => {

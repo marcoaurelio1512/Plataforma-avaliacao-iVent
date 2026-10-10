@@ -22,6 +22,9 @@ export function SharePanel({ survey, onCopied }: { survey: SurveySummary; onCopi
           <p className="field-label">Link público</p>
           <div className="url-box">{survey.publicUrl}</div>
         </div>
+        {survey.requireInvite && (
+          <p className="panel-note">Esta pesquisa exige convite: o link geral não aceita respostas. Distribua os links individuais em “Convites”.</p>
+        )}
         {survey.status !== "published" && (
           <p className="panel-note">O link só aceita respostas enquanto a pesquisa estiver publicada.</p>
         )}

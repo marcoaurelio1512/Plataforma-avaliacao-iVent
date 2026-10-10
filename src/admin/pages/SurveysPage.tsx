@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, Copy, Eye, FilePlus2, Lock, Pencil, Play, QrCode, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Eye, FilePlus2, KeyRound, Lock, Pencil, Play, QrCode, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { SURVEY_STATUS_LABELS } from "../../../shared/domain.ts";
@@ -8,6 +8,7 @@ import { dateTime } from "../../lib/format.ts";
 import { Drawer } from "../components/Drawer.tsx";
 import { PageHeader } from "../components/PageHeader.tsx";
 import { SharePanel } from "../components/SharePanel.tsx";
+import { InvitesPanel } from "../components/InvitesPanel.tsx";
 import { useToast } from "../components/useToast.tsx";
 import { useScope } from "../scope.tsx";
 import type { SurveySummary } from "../types.ts";
@@ -22,6 +23,7 @@ const CONFIRM: Partial<Record<Action, string>> = {
 export default function SurveysPage() {
   const { surveys, surveysLoading, reloadSurveys, setSurveyId } = useScope();
   const [sharing, setSharing] = useState<SurveySummary | null>(null);
+  const [inviting, setInviting] = useState<SurveySummary | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const toast = useToast();
@@ -76,6 +78,8 @@ export default function SurveysPage() {
                 <span className={`badge status-${s.status}`}>{SURVEY_STATUS_LABELS[s.status]}</span>
                 {s.currentVersionNumber && <span className="badge">Questionário v{s.currentVersionNumber}</span>}
                 {s.iventVersionLabel && <span className="badge badge-accent">{s.iventVersionLabel}</span>}
+                {s.requireInvite && <span className="badge badge-warning"><KeyRound size={12} /> Convite obrigatório</span>}
+                {s.invitesTotal > 0 && <span className="badge">Convites: <span className="num">{s.invitesUsed}/{s.invitesTotal}</span> usados</span>}
               </div>
               <h2 className="survey-card-title">{s.title}</h2>
               <p className="dim survey-card-meta">
@@ -89,6 +93,7 @@ export default function SurveysPage() {
               {s.status === "published" && <button type="button" className="btn btn-sm" disabled={busy === s.id} onClick={() => status(s, "close")}><Lock /> Encerrar</button>}
               {s.status === "closed" && <button type="button" className="btn btn-sm" disabled={busy === s.id} onClick={() => status(s, "reopen")}><RotateCcw /> Reabrir</button>}
               {s.status !== "archived" && <button type="button" className="btn btn-sm" onClick={() => setSharing(s)}><QrCode /> Link e QR</button>}
+              {s.status !== "archived" && <button type="button" className="btn btn-sm" onClick={() => setInviting(s)}><KeyRound /> Convites</button>}
               {s.status !== "archived" && <Link className="btn btn-sm" to={`/admin/pesquisas/${s.id}`}><Pencil /> Editar</Link>}
               <Link className="btn btn-sm btn-ghost" to={`/admin/pesquisas/${s.id}/previa`}><Eye /> Prévia</Link>
               <button type="button" className="btn btn-sm btn-ghost" disabled={busy === s.id} onClick={() => duplicate(s)}><Copy /> Duplicar</button>
@@ -107,6 +112,9 @@ export default function SurveysPage() {
       </ul>
       <Drawer open={Boolean(sharing)} title="Link e QR Code" subtitle={sharing?.title} onClose={() => setSharing(null)}>
         {sharing && <SharePanel survey={sharing} onCopied={toast.show} />}
+      </Drawer>
+      <Drawer open={Boolean(inviting)} title="Convites de uso único" subtitle={inviting?.title} onClose={() => setInviting(null)}>
+        {inviting && <InvitesPanel survey={inviting} onChanged={reloadSurveys} notify={toast.show} />}
       </Drawer>
       {toast.node}
       <span className="sr-only">{error ? errorMessage(error) : ""}</span>

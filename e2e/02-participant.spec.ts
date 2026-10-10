@@ -64,4 +64,10 @@ test("participante responde o questionário completo", async ({ page, request },
   const res = await request.get("/api/admin/surveys");
   const s = (await res.json()).data.find((x: { slug: string }) => x.slug === slug);
   expect(s.responseCount).toBe(mobile ? 1 : 2);
+
+  // Aviso no aparelho: abrir de novo mostra "já respondeu", com saída para aparelho compartilhado.
+  await page.goto(`/r/${slug}`);
+  await expect(page.getByRole("heading", { name: "Você já respondeu esta pesquisa neste aparelho" })).toBeVisible();
+  await page.getByRole("button", { name: "Outra pessoa vai responder" }).click();
+  await expect(page.getByRole("button", { name: /Começar/ })).toBeVisible();
 });

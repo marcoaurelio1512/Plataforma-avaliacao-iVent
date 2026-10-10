@@ -4,6 +4,8 @@ export interface PublicSurvey {
   slug: string;
   status: string;
   acceptingResponses: boolean;
+  inviteRequired?: boolean;
+  inviteStatus?: "missing" | "invalid" | "used" | "revoked";
   title: string;
   instructions?: string;
   openSectionTitle?: string;

@@ -34,6 +34,9 @@ export interface SurveySummary {
   updatedAt: string;
   publishedAt: string | null;
   closedAt: string | null;
+  requireInvite: boolean;
+  invitesTotal: number;
+  invitesUsed: number;
 }
 
 export interface SurveyVersionInfo {
@@ -62,7 +65,9 @@ const SUMMARY_SQL = `
          (SELECT count(*) FROM survey_responses r WHERE r.survey_id = s.id AND r.status = 'submitted') AS response_count,
          s.created_at, s.updated_at, s.published_at, s.closed_at,
          sv.instructions, sv.open_section_title,
-         s.consent_text, s.participant_info, s.protocol_number, s.institution, s.lead_researcher
+         s.consent_text, s.participant_info, s.protocol_number, s.institution, s.lead_researcher, s.require_invite,
+         (SELECT count(*) FROM survey_invites i WHERE i.survey_id = s.id AND i.revoked_at IS NULL) AS invites_total,
+         (SELECT count(*) FROM survey_invites i WHERE i.survey_id = s.id AND i.used_at IS NOT NULL) AS invites_used
     FROM surveys s
     LEFT JOIN ivent_versions iv ON iv.id = s.ivent_version_id
     LEFT JOIN survey_versions sv ON sv.id = s.current_version_id`;
@@ -88,6 +93,9 @@ type SummaryRow = {
   protocol_number: string | null;
   institution: string | null;
   lead_researcher: string | null;
+  require_invite: boolean;
+  invites_total: number;
+  invites_used: number;
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -107,6 +115,9 @@ function toSummary(r: SummaryRow): SurveySummary {
     updatedAt: r.updated_at.toISOString(),
     publishedAt: iso(r.published_at),
     closedAt: iso(r.closed_at),
+    requireInvite: r.require_invite,
+    invitesTotal: r.invites_total,
+    invitesUsed: r.invites_used,
   };
 }
 
@@ -367,6 +378,7 @@ export async function updateSurveyContent(surveyId: string, content: SurveyConte
 export async function updateSurveyMeta(surveyId: string, meta: SurveyMetaInput): Promise<void> {
   const fields: [string, unknown][] = [];
   if (meta.iventVersionId !== undefined) fields.push(["ivent_version_id", meta.iventVersionId]);
+  if (meta.requireInvite !== undefined) fields.push(["require_invite", meta.requireInvite]);
   if (meta.consentText !== undefined) fields.push(["consent_text", meta.consentText]);
   if (meta.participantInfo !== undefined) fields.push(["participant_info", meta.participantInfo]);
   if (meta.protocolNumber !== undefined) fields.push(["protocol_number", meta.protocolNumber]);

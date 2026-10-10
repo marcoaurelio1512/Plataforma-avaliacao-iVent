@@ -109,3 +109,41 @@ test("configurações: cadastrar versão do iVent", async ({ page }) => {
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.locator("table")).toContainText("iVent 2.0");
 });
+
+test("convites de uso único: exigir, gerar, baixar e acesso do participante", async ({ page, browser }) => {
+  await openAdmin(page);
+  await page.getByRole("navigation").getByRole("link", { name: "Pesquisas" }).click();
+  const card = page.locator(".survey-card").filter({ hasText: "Pesquisa rápida E2E" });
+  await card.getByRole("button", { name: "Publicar" }).click();
+  await expect(card).toContainText("Publicada");
+  await card.getByRole("button", { name: "Convites" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(/Exigir convite de uso único/).check();
+  await expect(dialog.locator(".invite-mode.is-on")).toBeVisible();
+  await dialog.getByLabel("Quantidade").fill("2");
+  await dialog.getByRole("button", { name: "Gerar convites" }).click();
+  await expect(dialog.locator("tbody tr")).toHaveCount(2);
+  await expect(dialog.getByText("Disponível")).toHaveCount(2);
+  const pdf = page.waitForEvent("download");
+  await dialog.getByRole("button", { name: /Folha de QR Codes/ }).click();
+  expect((await pdf).suggestedFilename()).toMatch(/convites-qr-.*\.pdf/);
+  await page.screenshot({ path: `${SHOTS}/admin-invites.png` });
+  const code = (await dialog.locator("tbody tr td.num").first().textContent())!.trim();
+  await page.keyboard.press("Escape");
+  await expect(card).toContainText("Convite obrigatório");
+
+  // Participante (navegador sem sessão administrativa)
+  const ctx = await browser.newContext();
+  const visitor = await ctx.newPage();
+  const href = await card.getByRole("button", { name: "Ver resultados" }).count(); // garante que o card segue visível
+  expect(href).toBe(1);
+  const surveys = await (await page.request.get("/api/admin/surveys")).json();
+  const slug = surveys.data.find((s: { title: string }) => s.title === "Pesquisa rápida E2E").slug;
+  await visitor.goto(`/r/${slug}`);
+  await expect(visitor.getByText(/respondida por convite/)).toBeVisible();
+  await visitor.goto(`/r/${slug}?c=codigoinvalido1`);
+  await expect(visitor.getByText(/convite não é válido/)).toBeVisible();
+  await visitor.goto(`/r/${slug}?c=${code}`);
+  await expect(visitor.getByRole("button", { name: /Começar/ })).toBeVisible();
+  await ctx.close();
+});

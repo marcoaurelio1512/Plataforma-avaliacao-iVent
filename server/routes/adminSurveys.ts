@@ -59,7 +59,8 @@ export function createAdminSurveyRoutes() {
 
   /** Prévia: o mesmo payload que o participante recebe, mesmo antes de publicar. */
   app.get("/api/admin/surveys/:id/preview", async (c) => {
-    return ok(c, await publicSurveyPayload({ id: idParam.parse(c.req.param("id")) }));
+    const { surveyId: _surveyId, ...payload } = await publicSurveyPayload({ id: idParam.parse(c.req.param("id")) });
+    return ok(c, payload);
   });
 
   app.put("/api/admin/surveys/:id/content", async (c) => {
