@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  BookOpen,
   Bot,
   Cloud,
   FileDown,
@@ -51,7 +52,7 @@ const NAV: { group: string; items: { to: string; label: string; icon: ReactNode;
       { to: "/admin/relatorios", label: "Relatórios", icon: <FileDown /> },
     ],
   },
-  { group: "Sistema", items: [{ to: "/admin/configuracoes", label: "Configurações", icon: <Settings /> }] },
+  { group: "Sistema", items: [{ to: "/admin/configuracoes", label: "Configurações", icon: <Settings /> }, { to: "/admin/como-usar", label: "Como usar", icon: <BookOpen /> }] },
 ];
 
 export function AdminLayout({ user, onLogout, children }: { user: AdminUser; onLogout: () => void; children: ReactNode }) {

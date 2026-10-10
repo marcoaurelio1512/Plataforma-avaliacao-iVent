@@ -20,6 +20,7 @@ const ComparePage = lazy(() => import("./pages/ComparePage.tsx"));
 const VersionsPage = lazy(() => import("./pages/VersionsPage.tsx"));
 const ReportsPage = lazy(() => import("./pages/ReportsPage.tsx"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
+const HelpPage = lazy(() => import("./pages/HelpPage.tsx"));
 
 export interface AdminUser {
   id: string;
@@ -77,6 +78,7 @@ export default function AdminApp() {
             <Route path="versoes" element={<VersionsPage />} />
             <Route path="relatorios" element={<ReportsPage />} />
             <Route path="configuracoes" element={<SettingsPage />} />
+            <Route path="como-usar" element={<HelpPage />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes>
         </Suspense>

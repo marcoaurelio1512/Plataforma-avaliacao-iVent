@@ -147,3 +147,16 @@ test("convites de uso único: exigir, gerar, baixar e acesso do participante", a
   await expect(visitor.getByRole("button", { name: /Começar/ })).toBeVisible();
   await ctx.close();
 });
+
+test("guia Como usar: abre pelo menu, índice navega e cabe no celular", async ({ page }) => {
+  await openAdmin(page);
+  await page.getByRole("link", { name: "Como usar", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Como usar" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Índice do guia" }).getByRole("link", { name: /Convites de uso único/ }).click();
+  await expect(page).toHaveURL(/#convites$/);
+  await expect(page.getByRole("heading", { name: /8\. Convites de uso único/ })).toBeInViewport();
+  await page.screenshot({ path: `${SHOTS}/admin-help.png` });
+  await page.setViewportSize({ width: 320, height: 800 });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});
