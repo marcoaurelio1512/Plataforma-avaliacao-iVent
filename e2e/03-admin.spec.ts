@@ -86,7 +86,17 @@ test("editor: criar questionário, reordenar, prévia e versionar pesquisa com r
   await page.getByRole("button", { name: "Salvar como rascunho" }).click();
   await expect(page).toHaveURL(/\/admin\/pesquisas\/[0-9a-f-]{36}/);
   await page.getByRole("link", { name: "Prévia" }).click();
-  await expect(page.getByText("Prévia — respostas não são enviadas")).toBeVisible();
+  await expect(page.getByText("Prévia — preencher é opcional; respostas não são enviadas")).toBeVisible();
+
+  // Prévia: navega por todas as perguntas sem preencher nada (inclusive as obrigatórias)
+  await page.getByRole("button", { name: "Começar" }).click();
+  await page.getByRole("button", { name: "Próxima" }).click();
+  await expect(page.getByRole("heading", { name: /Você usou a EIT\?/ })).toBeVisible();
+  await page.getByRole("button", { name: "Próxima" }).click();
+  await expect(page.getByRole("heading", { name: /A interface é clara\?/ })).toBeVisible();
+  await page.getByRole("button", { name: "Revisar" }).click();
+  await page.getByRole("button", { name: "Concluir prévia" }).click();
+  await expect(page.getByRole("heading", { name: "Obrigado por participar!" })).toBeVisible();
 
   // Editar a pesquisa inicial (que já tem respostas) cria a versão 2
   await page.getByRole("navigation").getByRole("link", { name: "Pesquisas" }).click();

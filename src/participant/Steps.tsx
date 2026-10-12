@@ -3,13 +3,14 @@ import type { ProfileInput, ProfileOption, QuestionDef } from "../../shared/doma
 import { answerSummary, isAnswered } from "./QuestionInputs.tsx";
 import type { AnswerMap, PublicSurvey } from "./types.ts";
 
-export function Welcome({ survey, consent, onConsent, onStart, restored, onRestart }: {
+export function Welcome({ survey, consent, onConsent, onStart, restored, onRestart, preview = false }: {
   survey: PublicSurvey;
   consent: boolean;
   onConsent: (v: boolean) => void;
   onStart: () => void;
   restored: boolean;
   onRestart: () => void;
+  preview?: boolean;
 }) {
   const research = survey.research;
   const needsConsent = Boolean(research?.consentText);
@@ -59,7 +60,7 @@ export function Welcome({ survey, consent, onConsent, onStart, restored, onResta
         </div>
       )}
       <div className="flow-actions">
-        <button type="button" className="btn btn-primary btn-lg" disabled={needsConsent && !consent} onClick={onStart}>
+        <button type="button" className="btn btn-primary btn-lg" disabled={needsConsent && !consent && !preview} onClick={onStart}>
           {restored ? "Continuar" : "Começar"} <ArrowRight />
         </button>
       </div>

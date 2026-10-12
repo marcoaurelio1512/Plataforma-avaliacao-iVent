@@ -63,7 +63,7 @@ export default function SurveyPage({ preview }: { preview?: PublicSurvey } = {})
       <header className="participant-header">
         <Brand />
         <div className="row">
-          {preview && <span className="badge badge-warning">Prévia — respostas não são enviadas</span>}
+          {preview && <span className="badge badge-warning">Prévia — preencher é opcional; respostas não são enviadas</span>}
           <ThemeToggle />
         </div>
       </header>
@@ -159,7 +159,9 @@ function Flow({ survey, preview, inviteCode, onDone }: { survey: PublicSurvey; p
     [setDraft],
   );
 
+  // Na prévia o administrador navega livremente; preencher é opcional.
   const canAdvance = () => {
+    if (preview) return true;
     if (step === 1) return Boolean(draft.profile.profession);
     if (question?.required) return isAnswered(question, answer);
     return true;
@@ -187,12 +189,12 @@ function Flow({ survey, preview, inviteCode, onDone }: { survey: PublicSurvey; p
   }, [question, answer, setAnswer]);
 
   const submit = async () => {
-    if (missing.length) {
-      setShowError(true);
-      return;
-    }
     if (preview) {
       setDone(true);
+      return;
+    }
+    if (missing.length) {
+      setShowError(true);
       return;
     }
     setSubmitting(true);
@@ -267,6 +269,7 @@ function Flow({ survey, preview, inviteCode, onDone }: { survey: PublicSurvey; p
             onConsent={(v) => setDraft((d) => ({ ...d, consent: v }))}
             onStart={() => goTo(Math.max(1, restored ? draft.step : 1))}
             restored={restored && draft.step > 0}
+            preview={preview}
             onRestart={restart}
           />
         )}
