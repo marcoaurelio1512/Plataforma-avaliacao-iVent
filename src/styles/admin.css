@@ -967,7 +967,9 @@
 }
 
 .q-summary .row { gap: var(--space-1); }
-.q-text { font-weight: 500; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.q-text { font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; }
+.q-help { font-size: 0.875em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.q-body .textarea.q-autosize { field-sizing: content; min-height: 4.5em; }
 
 .q-tools { display: flex; gap: 2px; }
 

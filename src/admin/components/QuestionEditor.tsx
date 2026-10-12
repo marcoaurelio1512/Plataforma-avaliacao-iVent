@@ -77,6 +77,7 @@ export function QuestionEditor({ index, total, question: q, expanded, onToggle, 
             {q.allowComment && <span className="badge">Comentário</span>}
           </span>
           <span className={`q-text${q.text ? "" : " dim"}`}>{q.text || "Pergunta sem texto"}</span>
+          {!expanded && q.helpText && <span className="q-help dim">{q.helpText}</span>}
         </button>
         <div className="q-tools">
           <button type="button" className="btn btn-ghost btn-icon btn-sm" disabled={index === 0} onClick={() => onMove(-1)} aria-label="Mover para cima"><ChevronUp /></button>
@@ -89,7 +90,7 @@ export function QuestionEditor({ index, total, question: q, expanded, onToggle, 
         <div className="q-body">
           <div className="field">
             <label htmlFor={`qt-${q.uid}`}>Texto da pergunta</label>
-            <textarea id={`qt-${q.uid}`} className="textarea" rows={3} value={q.text} onChange={(e) => set("text", e.target.value)} />
+            <textarea id={`qt-${q.uid}`} className="textarea q-autosize" rows={3} value={q.text} onChange={(e) => set("text", e.target.value)} />
           </div>
           <div className="q-grid">
             <div className="field">
