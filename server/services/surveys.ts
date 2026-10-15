@@ -1,14 +1,17 @@
 /**
  * Repositório de pesquisas, versões e perguntas.
  *
- * Regra de preservação histórica: uma versão que já recebeu resposta nunca é
- * alterada. Editar uma pesquisa nessa situação cria a versão seguinte e passa
- * a apontá-la como atual; as respostas antigas continuam ligadas à versão (e às
- * perguntas) que de fato responderam.
+ * Regra de preservação histórica: a estrutura de uma versão que já recebeu
+ * resposta nunca é alterada. Mudar a estrutura nessa situação cria a versão
+ * seguinte e passa a apontá-la como atual; as respostas antigas continuam
+ * ligadas à versão (e às perguntas) que de fato responderam. Correções de
+ * redação (textos e rótulos) são aplicadas na própria versão — ver
+ * shared/surveyChanges.ts.
  */
 import { randomBytes } from "node:crypto";
 import type { PoolClient } from "pg";
 import { scaleBounds, type QuestionDef, type SurveyStatus } from "../../shared/domain.ts";
+import { isStructuralChange } from "../../shared/surveyChanges.ts";
 import { getPool, query, queryOne, withTransaction, type Queryable } from "../db.ts";
 import { badRequest, conflict, notFound } from "../http.ts";
 import type { QuestionInput, SurveyContentInput, SurveyMetaInput } from "../validation.ts";
@@ -340,6 +343,8 @@ export async function createSurvey(content: SurveyContentInput, opts: CreateSurv
 
 export interface ContentUpdateResult {
   versionCreated: boolean;
+  /** Correção de redação aplicada numa versão que já tinha respostas. */
+  correctedWithResponses: boolean;
   versionId: string;
   versionNumber: number;
 }
@@ -357,21 +362,27 @@ export async function updateSurveyContent(surveyId: string, content: SurveyConte
     if (!row) throw notFound("Pesquisa não encontrada.");
     if (row.status === "archived") throw conflict("Desarquive a pesquisa antes de editá-la.");
 
-    if (row.has_responses || !row.current_version_id) {
+    // Com respostas, só correções de redação podem ser feitas no lugar; mudanças de estrutura viram nova versão.
+    const needsNewVersion =
+      !row.current_version_id ||
+      (row.has_responses && isStructuralChange(await getVersionQuestions(row.current_version_id, client), normalizeQuestions(content.questions)));
+
+    if (needsNewVersion) {
       const max = await client.query<{ max: number | null }>(`SELECT max(version_number) AS max FROM survey_versions WHERE survey_id = $1`, [surveyId]);
       const number = (max.rows[0]?.max ?? 0) + 1;
       const versionId = await insertVersion(client, surveyId, number, content);
       await client.query(`UPDATE surveys SET current_version_id = $1, title = $2, updated_at = now() WHERE id = $3`, [versionId, content.title, surveyId]);
-      return { versionCreated: true, versionId, versionNumber: number };
+      return { versionCreated: true, correctedWithResponses: false, versionId, versionNumber: number };
     }
 
-    // Versão ainda sem respostas: pode ser reescrita no lugar (ids preservados pela chave).
+    // Versão sem respostas, ou só correção de redação: reescrita no lugar (ids preservados pela chave).
+    const versionId = row.current_version_id!;
     await client.query(`UPDATE survey_versions SET title = $1, instructions = $2, open_section_title = $3 WHERE id = $4`, [
-      content.title, content.instructions, content.openSectionTitle, row.current_version_id,
+      content.title, content.instructions, content.openSectionTitle, versionId,
     ]);
-    await upsertQuestions(client, row.current_version_id, content.questions);
+    await upsertQuestions(client, versionId, content.questions);
     await client.query(`UPDATE surveys SET title = $1, updated_at = now() WHERE id = $2`, [content.title, surveyId]);
-    return { versionCreated: false, versionId: row.current_version_id, versionNumber: row.version_number ?? 1 };
+    return { versionCreated: false, correctedWithResponses: row.has_responses, versionId, versionNumber: row.version_number ?? 1 };
   });
 }
 

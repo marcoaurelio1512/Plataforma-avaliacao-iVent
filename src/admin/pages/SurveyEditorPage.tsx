@@ -1,9 +1,10 @@
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { AlertTriangle, Eye, Plus, Save } from "lucide-react";
+import { AlertTriangle, Eye, Info, Plus, Save } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { QUESTION_TYPES, QUESTION_TYPE_LABELS, type QuestionType } from "../../../shared/domain.ts";
+import { isStructuralChange } from "../../../shared/surveyChanges.ts";
 import { ErrorState, Loading } from "../../components/States.tsx";
 import { ApiError, api } from "../../lib/api.ts";
 import { PageHeader } from "../components/PageHeader.tsx";
@@ -77,7 +78,8 @@ export default function SurveyEditorPage() {
   );
 
   const currentVersion = detail?.versions.find((v) => v.id === detail.currentVersionId);
-  const willVersion = Boolean(currentVersion && currentVersion.responseCount > 0);
+  const hasResponses = Boolean(currentVersion && currentVersion.responseCount > 0);
+  const nextVersionNumber = (detail?.versions[0]?.versionNumber ?? 1) + 1;
 
   const update = (fn: (qs: EditableQuestion[]) => EditableQuestion[]) => {
     setQuestions(fn);
@@ -117,8 +119,22 @@ export default function SurveyEditorPage() {
     [title, instructions, openSectionTitle, questions],
   );
 
+  // Mesma regra do servidor: com respostas, só mudanças de estrutura criam nova versão.
+  const willVersion = hasResponses && dirty && detail != null && isStructuralChange(detail.questions, content.questions);
+  const willCorrect = hasResponses && dirty && !willVersion;
+
+  const confirmSave = () => {
+    if (willVersion) {
+      return window.confirm(`A alteração muda a estrutura do questionário. Salvar criará a versão ${nextVersionNumber}; as respostas anteriores continuam ligadas à versão original. Continuar?`);
+    }
+    if (willCorrect) {
+      return window.confirm(`As ${currentVersion!.responseCount} resposta(s) já recebidas passarão a exibir os textos corrigidos (os valores respondidos não mudam). Continuar?`);
+    }
+    return true;
+  };
+
   const save = async () => {
-    if (willVersion && dirty && !window.confirm(`Esta versão já tem respostas. Salvar criará a versão ${(detail?.versions[0]?.versionNumber ?? 1) + 1}; as respostas anteriores continuam ligadas à versão original. Continuar?`)) return;
+    if (!confirmSave()) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -132,8 +148,9 @@ export default function SurveyEditorPage() {
       }
       let message = "Alterações salvas";
       if (dirty) {
-        const res = await api<{ versionCreated: boolean; versionNumber: number; survey: SurveyDetail }>(`/api/admin/surveys/${id}/content`, { method: "PUT", body: content });
+        const res = await api<{ versionCreated: boolean; correctedWithResponses: boolean; versionNumber: number; survey: SurveyDetail }>(`/api/admin/surveys/${id}/content`, { method: "PUT", body: content });
         if (res.versionCreated) message = `Nova versão v${res.versionNumber} criada — histórico preservado`;
+        else if (res.correctedWithResponses) message = `Correções aplicadas na v${res.versionNumber}`;
       }
       if (metaDirty) await api(`/api/admin/surveys/${id}/meta`, { method: "PUT", body: meta });
       hydrate(await api<SurveyDetail>(`/api/admin/surveys/${id}`));
@@ -170,10 +187,18 @@ export default function SurveyEditorPage() {
           </>
         }
       />
-      {willVersion && (
-        <div className="alert alert-warning">
-          <AlertTriangle />
-          <span>Esta versão já recebeu {currentVersion!.responseCount} resposta(s). Alterar perguntas criará uma <b>nova versão</b>; os dados históricos não são modificados.</span>
+      {hasResponses && (
+        <div className={`alert ${willVersion ? "alert-warning" : "alert-info"}`} role="status">
+          {willVersion ? <AlertTriangle /> : <Info />}
+          <div className="stack-sm">
+            <span>
+              Esta versão já recebeu {currentVersion!.responseCount} resposta(s). Você pode <b>corrigir textos</b> — pergunta, texto de apoio, categoria,
+              rótulos das opções e da escala — e reordenar perguntas na própria versão. Incluir ou remover perguntas ou opções, ou mudar tipo, seção,
+              escala e marcações, cria uma <b>nova versão</b> para preservar os dados.
+            </span>
+            {willVersion && <b>Ao salvar: será criada a versão v{nextVersionNumber}.</b>}
+            {willCorrect && <b>Ao salvar: correção aplicada na v{detail?.currentVersionNumber ?? 1}.</b>}
+          </div>
         </div>
       )}
       {(dirty || metaDirty) && <p className="panel-note">Há alterações não salvas.</p>}
@@ -225,7 +250,7 @@ export default function SurveyEditorPage() {
                       total={questions.length}
                       question={q}
                       expanded={expanded.has(q.uid)}
-                      locked={willVersion}
+                      locked={hasResponses}
                       onToggle={() => toggle(q.uid)}
                       onChange={(next) => update((qs) => qs.map((x) => (x.uid === q.uid ? next : x)))}
                       onRemove={() => window.confirm("Excluir esta pergunta?") && update((qs) => qs.filter((x) => x.uid !== q.uid))}

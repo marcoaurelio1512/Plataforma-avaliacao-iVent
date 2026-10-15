@@ -98,13 +98,22 @@ test("editor: criar questionário, reordenar, prévia e versionar pesquisa com r
   await page.getByRole("button", { name: "Concluir prévia" }).click();
   await expect(page.getByRole("heading", { name: "Obrigado por participar!" })).toBeVisible();
 
-  // Editar a pesquisa inicial (que já tem respostas) cria a versão 2
+  // Pesquisa inicial (que já tem respostas): correção de texto fica na v1…
   await page.getByRole("navigation").getByRole("link", { name: "Pesquisas" }).click();
   await page.locator(".survey-card").filter({ hasText: "Avaliação de Interface, Usabilidade" }).getByRole("link", { name: "Editar" }).click();
   await expect(page.getByText(/já recebeu 2 resposta\(s\)/)).toBeVisible();
   await page.getByLabel("Título da seção de perguntas abertas").fill("Sua opinião sobre o iVent NeoPed (revisado)");
   await page.locator(".q-summary").first().click();
   await page.getByLabel("Texto da pergunta").first().fill("A interface do iVent é clara e organizada?");
+  await expect(page.getByText(/Ao salvar: correção aplicada na v1/)).toBeVisible();
+  page.once("dialog", (d) => d.accept());
+  await page.getByRole("button", { name: "Salvar alterações" }).click();
+  await expect(page.getByText(/Correções aplicadas na v1/)).toBeVisible();
+  await expect(page.locator(".version-list")).not.toContainText("v2");
+
+  // …e mudança de estrutura cria a versão 2 (a primeira pergunta segue expandida após salvar)
+  await page.getByLabel(/Opção “Não se aplica”/).first().click();
+  await expect(page.getByText(/Ao salvar: será criada a versão v2/)).toBeVisible();
   page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "Salvar alterações" }).click();
   await expect(page.getByText(/Nova versão v2 criada/)).toBeVisible();

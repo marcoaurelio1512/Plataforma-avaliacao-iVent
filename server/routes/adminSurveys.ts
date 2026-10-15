@@ -70,7 +70,7 @@ export function createAdminSurveyRoutes() {
     await audit(c.get("admin").id, result.versionCreated ? "survey_version_created" : "survey_updated", {
       entity: "survey",
       entityId: id,
-      details: { versionNumber: result.versionNumber },
+      details: { versionNumber: result.versionNumber, correctedWithResponses: result.correctedWithResponses },
       ipHash: c.get("ipHash"),
     });
     return ok(c, { ...result, survey: await getSurveyDetail(id) });

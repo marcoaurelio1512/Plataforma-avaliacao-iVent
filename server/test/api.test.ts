@@ -404,10 +404,34 @@ describe("exportações", () => {
 });
 
 describe("versionamento e preservação histórica", () => {
-  it("editar após respostas cria nova versão sem alterar a anterior", async () => {
+  it("correção de redação após respostas é aplicada na própria versão", async () => {
+    const before = await admin.json(`/api/admin/surveys/${surveyId}`);
+    const target = before.questions.find((q: Json) => q.section === "quantitative" && q.key !== "interface_visual");
+    const reordered = [...before.questions].reverse();
+    const questions = reordered.map((q: Json) => (q.key === target.key ? { ...q, text: `${q.text} (corrigida)`, helpText: "Apoio corrigido", category: "Categoria corrigida" } : q));
+    const dashBefore = await admin.json(`/api/admin/dashboard?surveyId=${surveyId}&versionId=${before.currentVersionId}`);
+    const edit = await admin.json(`/api/admin/surveys/${surveyId}/content`, { method: "PUT", body: { title: `${before.title} (corrigido)`, instructions: before.instructions, openSectionTitle: before.openSectionTitle, questions } });
+    expect(edit.versionCreated).toBe(false);
+    expect(edit.correctedWithResponses).toBe(true);
+    expect(edit.versionId).toBe(before.currentVersionId);
+    expect(edit.survey.versions).toHaveLength(before.versions.length);
+    const corrected = edit.survey.questions.find((q: Json) => q.key === target.key);
+    expect(corrected).toMatchObject({ id: target.id, text: `${target.text} (corrigida)`, helpText: "Apoio corrigido", category: "Categoria corrigida" });
+    expect(edit.survey.questions.map((q: Json) => q.id)).toEqual(reordered.map((q: Json) => q.id));
+    // As respostas já recebidas continuam ligadas às mesmas perguntas.
+    const dashAfter = await admin.json(`/api/admin/dashboard?surveyId=${surveyId}&versionId=${before.currentVersionId}`);
+    expect(dashAfter.overview.completedResponses).toBe(dashBefore.overview.completedResponses);
+    // Restaura título e ordem originais para os testes seguintes.
+    await admin.json(`/api/admin/surveys/${surveyId}/content`, { method: "PUT", body: { title: before.title, instructions: before.instructions, openSectionTitle: before.openSectionTitle, questions: before.questions } });
+  });
+
+  it("mudança de estrutura após respostas cria nova versão sem alterar a anterior", async () => {
     const before = await admin.json(`/api/admin/surveys/${surveyId}`);
     const oldVersionId = before.currentVersionId;
-    const questions = before.questions.map((q: Json) => (q.key === "interface_visual" ? { ...q, text: `${q.text} (revisada)` } : q));
+    const questions = [
+      ...before.questions.map((q: Json) => (q.key === "interface_visual" ? { ...q, text: `${q.text} (revisada)` } : q)),
+      { section: "open", type: "short_text", text: "Pergunta nova", required: false },
+    ];
     const edit = await admin.json(`/api/admin/surveys/${surveyId}/content`, { method: "PUT", body: { title: before.title, instructions: before.instructions, openSectionTitle: before.openSectionTitle, questions } });
     expect(edit.versionCreated).toBe(true);
     expect(edit.versionNumber).toBe(2);
