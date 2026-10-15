@@ -3,14 +3,8 @@
  * (proteção contra formula injection).
  */
 import ExcelJS from "exceljs";
-import {
-  EXPERIENCE_YEARS,
-  IVENT_EXPERIENCE,
-  SIMULATOR_EXPERIENCE,
-  SPECIAL_ANSWER_LABELS,
-  isQuantitative,
-  optionLabel,
-} from "../../../shared/domain.ts";
+import { SPECIAL_ANSWER_LABELS, isQuantitative } from "../../../shared/domain.ts";
+import { profileOptionLabel } from "../../../shared/profileForm.ts";
 import { safeCell, type CellValue } from "../../../shared/spreadsheetSafe.ts";
 import { GROUP_COMPARISON_NOTE } from "../../../shared/stats.ts";
 import { textDocuments } from "../analytics.ts";
@@ -43,8 +37,9 @@ export async function buildXlsx(data: ReportData): Promise<Buffer> {
     "Participantes",
     ["Participante", "Profissão", "Tempo de experiência", "Experiência com simuladores", "Experiência com o iVent", "Dispositivo", "Enviado em", "Versão do iVent"],
     ds.responses.map((r) => [
-      r.participantCode, r.professionLabel, optionLabel(EXPERIENCE_YEARS, r.experienceYears), optionLabel(SIMULATOR_EXPERIENCE, r.simulatorExperience),
-      optionLabel(IVENT_EXPERIENCE, r.iventExperience), r.deviceClass ?? "", r.submittedAt, r.iventVersionLabel ?? "",
+      r.participantCode, r.professionLabel, profileOptionLabel(ds.profileForm, "experienceYears", r.experienceYears),
+      profileOptionLabel(ds.profileForm, "simulatorExperience", r.simulatorExperience),
+      profileOptionLabel(ds.profileForm, "iventExperience", r.iventExperience), r.deviceClass ?? "", r.submittedAt, r.iventVersionLabel ?? "",
     ]),
     [14, 34, 20, 26, 26, 12, 22, 16],
   );

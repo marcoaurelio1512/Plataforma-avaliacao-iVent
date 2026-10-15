@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { openAdmin, SHOTS } from "./helpers.ts";
+import { openAdmin, SHOTS, surveySlug } from "./helpers.ts";
 
 test.describe.configure({ mode: "serial" });
 
@@ -127,6 +127,33 @@ test("configurações: cadastrar versão do iVent", async ({ page }) => {
   await page.getByLabel("Nome").fill("iVent 2.0");
   await page.getByRole("button", { name: "Salvar" }).click();
   await expect(page.locator("table")).toContainText("iVent 2.0");
+});
+
+test("configurações: editar a tela de perfil e o participante vê a mudança", async ({ page, browser, request }) => {
+  await openAdmin(page);
+  await page.getByRole("navigation").getByRole("link", { name: "Configurações" }).click();
+  await page.getByRole("tab", { name: "Tela de perfil" }).click();
+  await page.getByLabel("Título").fill("Seu perfil profissional");
+  const years = page.locator(".profile-field").filter({ has: page.getByRole("heading", { name: "Tempo de experiência" }) });
+  await years.getByRole("button", { name: "Adicionar opção" }).click();
+  await years.getByLabel("Opção 5 de Tempo de experiência").fill("Mais de 10 anos");
+  const ivent = page.locator(".profile-field").filter({ has: page.getByRole("heading", { name: "Experiência prévia com o iVent NeoPed" }) });
+  await ivent.getByLabel("mostrar ao participante").uncheck();
+  await page.getByRole("button", { name: "Salvar" }).click();
+  await expect(page.getByText(/Tela de perfil salva/)).toBeVisible();
+  // Opção salva não tem mais o botão de remover (só pode ser ocultada).
+  await expect(years.getByRole("button", { name: "Remover Mais de 10 anos" })).toHaveCount(0);
+  await page.screenshot({ path: `${SHOTS}/admin-profile-form.png`, fullPage: true });
+
+  const { slug } = await surveySlug(request);
+  const ctx = await browser.newContext();
+  const visitor = await ctx.newPage();
+  await visitor.goto(`/r/${slug}`);
+  await visitor.getByRole("button", { name: /Começar/ }).click();
+  await expect(visitor.getByRole("heading", { name: "Seu perfil profissional" })).toBeVisible();
+  await expect(visitor.getByRole("radio", { name: "Mais de 10 anos" })).toBeVisible();
+  await expect(visitor.getByText("Experiência prévia com o iVent NeoPed")).toHaveCount(0);
+  await ctx.close();
 });
 
 test("convites de uso único: exigir, gerar, baixar e acesso do participante", async ({ page, browser }) => {

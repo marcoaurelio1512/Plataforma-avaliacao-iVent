@@ -1531,3 +1531,42 @@ details[open] > summary {
     grid-template-columns: 1fr;
   }
 }
+
+/* Configurações → Tela de perfil ------------------------------------------------ */
+.profile-field.is-hidden {
+  opacity: 0.72;
+}
+
+.profile-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.profile-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.profile-option.is-inactive .input {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.profile-option-actions {
+  gap: var(--space-1);
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 520px) {
+  .profile-option {
+    flex-wrap: wrap;
+  }
+
+  .profile-option .input {
+    flex-basis: 100%;
+  }
+}

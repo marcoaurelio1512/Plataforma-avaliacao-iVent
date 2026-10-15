@@ -85,31 +85,25 @@ function OptionCards({ name, options, value, onChange, required }: { name: strin
 }
 
 export function Profile({ survey, profile, onChange, showError }: { survey: PublicSurvey; profile: ProfileInput; onChange: (p: ProfileInput) => void; showError: boolean }) {
-  const o = survey.profileOptions!;
+  const form = survey.profileForm!;
   return (
     <section className="stack-lg" aria-labelledby="profile-title">
       <div className="stack-sm">
         <p className="eyebrow">Perfil profissional</p>
-        <h2 id="profile-title" className="step-title">Conte um pouco sobre você</h2>
-        <p className="muted">Usamos estas informações apenas para comparar percepções entre grupos.</p>
+        <h2 id="profile-title" className="step-title">{form.title}</h2>
+        {form.subtitle && <p className="muted">{form.subtitle}</p>}
       </div>
       <fieldset className="profile-group">
-        <legend>Categoria profissional <span className="req">obrigatório</span></legend>
-        <OptionCards name="Categoria profissional" options={o.professions} value={profile.profession} required onChange={(v) => onChange({ ...profile, profession: v ?? "" })} />
-        {showError && !profile.profession && <p className="field-error" role="alert">Selecione sua categoria profissional para continuar.</p>}
+        <legend>{form.professionLabel} <span className="req">obrigatório</span></legend>
+        <OptionCards name={form.professionLabel} options={survey.professions!} value={profile.profession} required onChange={(v) => onChange({ ...profile, profession: v ?? "" })} />
+        {showError && !profile.profession && <p className="field-error" role="alert">Selecione uma opção em “{form.professionLabel}” para continuar.</p>}
       </fieldset>
-      <fieldset className="profile-group">
-        <legend>Tempo de experiência <span className="opt">opcional</span></legend>
-        <OptionCards name="Tempo de experiência" options={o.experienceYears} value={profile.experienceYears} onChange={(v) => onChange({ ...profile, experienceYears: v })} />
-      </fieldset>
-      <fieldset className="profile-group">
-        <legend>Experiência prévia com simuladores de ventilação mecânica <span className="opt">opcional</span></legend>
-        <OptionCards name="Experiência com simuladores" options={o.simulatorExperience} value={profile.simulatorExperience} onChange={(v) => onChange({ ...profile, simulatorExperience: v })} />
-      </fieldset>
-      <fieldset className="profile-group">
-        <legend>Experiência prévia com o iVent NeoPed <span className="opt">opcional</span></legend>
-        <OptionCards name="Experiência com o iVent" options={o.iventExperience} value={profile.iventExperience} onChange={(v) => onChange({ ...profile, iventExperience: v })} />
-      </fieldset>
+      {form.fields.map((field) => (
+        <fieldset key={field.key} className="profile-group">
+          <legend>{field.label} <span className="opt">opcional</span></legend>
+          <OptionCards name={field.label} options={field.options} value={profile[field.key]} onChange={(v) => onChange({ ...profile, [field.key]: v })} />
+        </fieldset>
+      ))}
     </section>
   );
 }

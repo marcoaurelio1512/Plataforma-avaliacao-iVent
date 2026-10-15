@@ -5,17 +5,19 @@ import { api, errorMessage } from "../../lib/api.ts";
 import { date, dateTime } from "../../lib/format.ts";
 import { useAsync } from "../../lib/useAsync.ts";
 import { PageHeader } from "../components/PageHeader.tsx";
+import { ProfileFormPanel } from "../components/ProfileFormPanel.tsx";
 import { UsersPanel } from "../components/UsersPanel.tsx";
 import { useToast } from "../components/useToast.tsx";
 import { useScope } from "../scope.tsx";
 import { useSession } from "../session.tsx";
 import type { IventVersion, Profession } from "../types.ts";
 
-type Tab = "versions" | "professions" | "text" | "users" | "security" | "audit";
+type Tab = "versions" | "professions" | "profile" | "text" | "users" | "security" | "audit";
 /** `manage`: aba só para administradores; o pesquisador vê apenas Segurança. */
 const TABS: { id: Tab; label: string; manage: boolean }[] = [
   { id: "versions", label: "Versões do iVent", manage: true },
   { id: "professions", label: "Categorias profissionais", manage: true },
+  { id: "profile", label: "Tela de perfil", manage: true },
   { id: "text", label: "Análise textual", manage: true },
   { id: "users", label: "Usuários", manage: true },
   { id: "security", label: "Segurança", manage: false },
@@ -37,6 +39,7 @@ export default function SettingsPage() {
       </div>
       {tab === "versions" && <VersionsTab onDone={toast.show} />}
       {tab === "professions" && <ProfessionsTab onDone={toast.show} />}
+      {tab === "profile" && <ProfileFormPanel onDone={toast.show} />}
       {tab === "text" && <TextTab onDone={toast.show} />}
       {tab === "users" && <UsersPanel onDone={toast.show} />}
       {tab === "security" && <SecurityTab onDone={toast.show} />}

@@ -4,9 +4,11 @@
  * partem deste mesmo conjunto — os números batem entre as telas e exportações.
  */
 import type { QuestionDef, SpecialAnswer } from "../../shared/domain.ts";
+import type { ProfileForm } from "../../shared/profileForm.ts";
 import { query, queryOne } from "../db.ts";
 import { badRequest, notFound } from "../http.ts";
 import type { AnalysisFilters } from "../validation.ts";
+import { getProfileForm } from "./profileForm.ts";
 import { getVersionQuestions } from "./surveys.ts";
 
 export interface AnswerRecord {
@@ -40,6 +42,8 @@ export interface Dataset {
   questions: QuestionDef[];
   responses: DatasetResponse[];
   filters: AnalysisFilters;
+  /** Rótulos atuais do perfil: renomear uma opção vale também para respostas antigas. */
+  profileForm: ProfileForm;
 }
 
 export async function resolveVersion(surveyId: string, versionId?: string) {
@@ -165,5 +169,6 @@ export async function loadDataset(filters: AnalysisFilters): Promise<Dataset> {
       answers: byResponse.get(r.id) ?? new Map(),
     })),
     filters,
+    profileForm: await getProfileForm(),
   };
 }

@@ -1,4 +1,5 @@
 import type { AnswerInput, ProfileInput, ProfileOption, QuestionDef } from "../../shared/domain.ts";
+import type { PublicProfileForm } from "../../shared/profileForm.ts";
 
 export interface PublicSurvey {
   slug: string;
@@ -20,12 +21,9 @@ export interface PublicSurvey {
     protocolNumber: string | null;
   };
   questions?: QuestionDef[];
-  profileOptions?: {
-    professions: ProfileOption[];
-    experienceYears: ProfileOption[];
-    simulatorExperience: ProfileOption[];
-    iventExperience: ProfileOption[];
-  };
+  professions?: ProfileOption[];
+  /** Textos, campos opcionais e opções da tela de perfil (editáveis em Configurações). */
+  profileForm?: PublicProfileForm;
 }
 
 export type AnswerMap = Record<string, AnswerInput>;

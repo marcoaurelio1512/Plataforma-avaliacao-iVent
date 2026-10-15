@@ -1,4 +1,4 @@
-/** Configurações: categorias profissionais, versões do iVent, vocabulário da análise textual e auditoria. */
+/** Configurações: categorias profissionais, formulário de perfil, versões do iVent, vocabulário da análise textual e auditoria. */
 import { Hono } from "hono";
 import { z } from "zod";
 import { DEFAULT_PHRASES, PROTECTED_TERMS } from "../../shared/text.ts";
@@ -8,6 +8,7 @@ import type { AppEnv } from "../context.ts";
 import { query, queryOne } from "../db.ts";
 import { conflict, notFound, ok, readJson } from "../http.ts";
 import { aiConfig } from "../services/ai.ts";
+import { getProfileForm, profileFormSchema, saveProfileForm } from "../services/profileForm.ts";
 import { getTextSettings, saveTextSettings, textSettingsSchema } from "../services/textSettings.ts";
 
 const professionSchema = z.object({
@@ -71,6 +72,14 @@ export function createAdminSettingsRoutes() {
     if (!updated.length) throw notFound("Categoria não encontrada.");
     await audit(c.get("admin").id, "profession_updated", { entity: "profession", entityId: code, ipHash: c.get("ipHash") });
     return ok(c, { code, ...p });
+  });
+
+  app.get("/api/admin/profile-form", async (c) => ok(c, await getProfileForm()));
+
+  app.put("/api/admin/profile-form", async (c) => {
+    const saved = await saveProfileForm(await readJson(c, profileFormSchema));
+    await audit(c.get("admin").id, "profile_form_updated", { entity: "profile_form", ipHash: c.get("ipHash") });
+    return ok(c, saved);
   });
 
   app.get("/api/admin/ivent-versions", async (c) => {

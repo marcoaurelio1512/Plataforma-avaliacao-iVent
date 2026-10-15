@@ -61,31 +61,6 @@ export interface ProfileOption {
   label: string;
 }
 
-export const EXPERIENCE_YEARS: ProfileOption[] = [
-  { code: "lt1", label: "Menos de 1 ano" },
-  { code: "1to3", label: "1–3 anos" },
-  { code: "4to5", label: "4–5 anos" },
-  { code: "gt5", label: "Mais de 5 anos" },
-];
-
-export const SIMULATOR_EXPERIENCE: ProfileOption[] = [
-  { code: "none", label: "Nenhuma" },
-  { code: "basic", label: "Básica" },
-  { code: "intermediate", label: "Intermediária" },
-  { code: "advanced", label: "Avançada" },
-];
-
-export const IVENT_EXPERIENCE: ProfileOption[] = [
-  { code: "first", label: "Primeiro contato" },
-  { code: "before", label: "Já utilizei anteriormente" },
-  { code: "frequent", label: "Utilizo frequentemente" },
-];
-
-export function optionLabel(options: ProfileOption[], code: string | null | undefined): string {
-  if (!code) return "Não informado";
-  return options.find((o) => o.code === code)?.label ?? code;
-}
-
 /** Categorias profissionais iniciais; outras podem ser cadastradas pelo admin. */
 export const DEFAULT_PROFESSIONS: ProfileOption[] = [
   { code: "resident_neonatology", label: "Médico residente de Neonatologia" },

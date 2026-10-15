@@ -1,7 +1,8 @@
 /** Rotas de análise (dashboard, respostas, textos, nuvem, grupos, versões, IA). */
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { PHYSIO, RESIDENT, isQuantitative, optionLabel, EXPERIENCE_YEARS, IVENT_EXPERIENCE, SIMULATOR_EXPERIENCE } from "../../shared/domain.ts";
+import { PHYSIO, RESIDENT, isQuantitative } from "../../shared/domain.ts";
+import { profileOptionLabel } from "../../shared/profileForm.ts";
 import { buildWordCloud } from "../../shared/text.ts";
 import { PRIORITY_FORMULA } from "../../shared/themes.ts";
 import { audit } from "../auth.ts";
@@ -87,17 +88,17 @@ export function createAdminDataRoutes() {
         code: r.participantCode,
         responseId: r.id,
         profession: r.professionLabel,
-        experienceYears: optionLabel(EXPERIENCE_YEARS, r.experienceYears),
-        simulatorExperience: optionLabel(SIMULATOR_EXPERIENCE, r.simulatorExperience),
-        iventExperience: optionLabel(IVENT_EXPERIENCE, r.iventExperience),
+        experienceYears: profileOptionLabel(ds.profileForm, "experienceYears", r.experienceYears),
+        simulatorExperience: profileOptionLabel(ds.profileForm, "simulatorExperience", r.simulatorExperience),
+        iventExperience: profileOptionLabel(ds.profileForm, "iventExperience", r.iventExperience),
         deviceClass: r.deviceClass,
         submittedAt: r.submittedAt.toISOString(),
       })),
       distributions: {
         profession: count((r) => r.professionLabel),
-        experienceYears: count((r) => optionLabel(EXPERIENCE_YEARS, r.experienceYears)),
-        simulatorExperience: count((r) => optionLabel(SIMULATOR_EXPERIENCE, r.simulatorExperience)),
-        iventExperience: count((r) => optionLabel(IVENT_EXPERIENCE, r.iventExperience)),
+        experienceYears: count((r) => profileOptionLabel(ds.profileForm, "experienceYears", r.experienceYears)),
+        simulatorExperience: count((r) => profileOptionLabel(ds.profileForm, "simulatorExperience", r.simulatorExperience)),
+        iventExperience: count((r) => profileOptionLabel(ds.profileForm, "iventExperience", r.iventExperience)),
         device: count((r) => r.deviceClass ?? "Não informado"),
       },
     });

@@ -230,7 +230,7 @@ export default function HelpPage() {
             <p>O fluxo é sempre o mesmo, em uma tela por vez, com botões grandes no celular:</p>
             <Steps>
               <li><b>Bem-vindo</b> — título, instruções, aviso de anonimato e, se configurado, informações da pesquisa e termo de consentimento.</li>
-              <li><b>Perfil profissional</b> — categoria profissional (obrigatória); tempo de experiência, experiência com simuladores e com o iVent (opcionais).</li>
+              <li><b>Perfil profissional</b> — categoria profissional (obrigatória); tempo de experiência, experiência com simuladores e com o iVent (opcionais). Os textos, as opções e quais campos aparecem são editados em <b>Configurações → Tela de perfil</b>.</li>
               <li><b>Avaliação</b> — as perguntas quantitativas, com o indicador “Pergunta X de 15” e a barra de progresso. No computador, as teclas 1 a 5 marcam a nota.</li>
               <li><b>Sua opinião</b> — as perguntas abertas, com caixas grandes de texto.</li>
               <li><b>Revisar</b> — lista de todas as respostas. Tocar em um item volta a ele para corrigir. Perguntas obrigatórias sem resposta ficam destacadas.</li>

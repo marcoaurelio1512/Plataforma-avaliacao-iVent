@@ -1,5 +1,6 @@
 /** Exportações CSV (formato longo, uma linha por resposta a pergunta). */
-import { optionLabel, EXPERIENCE_YEARS, IVENT_EXPERIENCE, SIMULATOR_EXPERIENCE, SPECIAL_ANSWER_LABELS } from "../../../shared/domain.ts";
+import { SPECIAL_ANSWER_LABELS } from "../../../shared/domain.ts";
+import { profileOptionLabel } from "../../../shared/profileForm.ts";
 import { toCsv, type CellValue } from "../../../shared/spreadsheetSafe.ts";
 import { questionStats, textDocuments } from "../analytics.ts";
 import type { Dataset } from "../dataset.ts";
@@ -18,7 +19,9 @@ export function answersCsv(ds: Dataset): string {
       const a = r.answers.get(q.id!);
       rows.push([
         r.id, r.participantCode, r.professionLabel,
-        optionLabel(EXPERIENCE_YEARS, r.experienceYears), optionLabel(SIMULATOR_EXPERIENCE, r.simulatorExperience), optionLabel(IVENT_EXPERIENCE, r.iventExperience),
+        profileOptionLabel(ds.profileForm, "experienceYears", r.experienceYears),
+        profileOptionLabel(ds.profileForm, "simulatorExperience", r.simulatorExperience),
+        profileOptionLabel(ds.profileForm, "iventExperience", r.iventExperience),
         r.iventVersionLabel ?? "", ds.version.number, r.submittedAt.toISOString(), q.key, q.text, q.type,
         a?.numeric ?? null, a?.choices?.join("; ") ?? null, a?.text ?? null,
         a?.special ? SPECIAL_ANSWER_LABELS[a.special] : null, a?.comment ?? null,

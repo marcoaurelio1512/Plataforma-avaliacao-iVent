@@ -4,12 +4,13 @@
  * chave de idempotência e validação completa no servidor.
  */
 import { Hono } from "hono";
-import { EXPERIENCE_YEARS, IVENT_EXPERIENCE, SIMULATOR_EXPERIENCE } from "../../shared/domain.ts";
+import { publicProfileForm } from "../../shared/profileForm.ts";
 import type { AppEnv } from "../context.ts";
 import { query, queryOne } from "../db.ts";
 import { badRequest, notFound, ok, readJson, tooManyRequests } from "../http.ts";
 import { log } from "../logger.ts";
 import { RateLimiter, signStart, verifyStart } from "../security.ts";
+import { getProfileForm } from "../services/profileForm.ts";
 import { submitResponse } from "../services/responses.ts";
 import { getVersionQuestions } from "../services/surveys.ts";
 import { inviteStatus } from "../services/invites.ts";
@@ -69,12 +70,8 @@ export async function publicSurveyPayload(where: { slug?: string; id?: string })
       protocolNumber: survey.protocol_number,
     },
     questions: await getVersionQuestions(version!.id),
-    profileOptions: {
-      professions,
-      experienceYears: EXPERIENCE_YEARS,
-      simulatorExperience: SIMULATOR_EXPERIENCE,
-      iventExperience: IVENT_EXPERIENCE,
-    },
+    professions,
+    profileForm: publicProfileForm(await getProfileForm()),
   };
 }
 

@@ -33,6 +33,7 @@ interface SubmitOptions {
   website?: string;
   versionId?: string;
   inviteCode?: string;
+  profile?: Record<string, string | null>;
 }
 
 async function submit(o: SubmitOptions, payload?: Json): Promise<Response> {
@@ -63,7 +64,7 @@ async function submit(o: SubmitOptions, payload?: Json): Promise<Response> {
       deviceClass: "mobile",
       website: o.website ?? "",
       inviteCode: o.inviteCode,
-      profile: { profession: o.profession, experienceYears: "1to3", simulatorExperience: "basic", iventExperience: "first" },
+      profile: { profession: o.profession, experienceYears: "1to3", simulatorExperience: "basic", iventExperience: "first", ...o.profile },
       answers,
     }),
   });
@@ -600,5 +601,76 @@ describe("convites de uso único", () => {
     const pdf = await admin.request(`/api/admin/surveys/${inviteSurveyId}/invites/qr.pdf`);
     expect(pdf.headers.get("content-type")).toBe("application/pdf");
     expect(Buffer.from(await pdf.arrayBuffer()).subarray(0, 5).toString()).toBe("%PDF-");
+  });
+});
+
+describe("formulário de perfil editável", () => {
+  const path = "/api/admin/profile-form";
+  const ALL4 = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
+  let original: Json;
+
+  beforeAll(async () => {
+    original = await admin.json(path);
+  });
+
+  // Restaurar pela API seria apagar a opção nova (recusado de propósito); volta ao padrão direto no banco.
+  afterAll(async () => {
+    await query(`DELETE FROM app_settings WHERE key = 'profile_form'`);
+  });
+
+  it("devolve os textos e opções padrão enquanto nada foi salvo", () => {
+    expect(original.title).toBe("Conte um pouco sobre você");
+    expect(original.fields.experienceYears.options.map((o: Json) => o.code)).toEqual(["lt1", "1to3", "4to5", "gt5"]);
+  });
+
+  it("salva textos, renomeia, oculta e adiciona opções; o participante vê a nova tela", async () => {
+    const next = structuredClone(original);
+    next.title = "Seu perfil";
+    next.fields.experienceYears.label = "Anos de prática";
+    next.fields.experienceYears.options[0].label = "Até 1 ano";
+    next.fields.experienceYears.options[3].active = false;
+    next.fields.experienceYears.options.push({ code: "", label: "Mais de 10 anos", active: true });
+    next.fields.iventExperience.enabled = false;
+    const saved = await admin.json(path, { method: "PUT", body: next });
+    expect(saved.fields.experienceYears.options.at(-1)).toEqual({ code: "mais_de_10_anos", label: "Mais de 10 anos", active: true });
+
+    const form = (await publicSurvey()).profileForm;
+    expect(form.title).toBe("Seu perfil");
+    expect(form.fields.map((f: Json) => f.key)).toEqual(["experienceYears", "simulatorExperience"]);
+    expect(form.fields[0].label).toBe("Anos de prática");
+    expect(form.fields[0].options.map((o: Json) => o.code)).toEqual(["lt1", "1to3", "4to5", "mais_de_10_anos"]);
+  });
+
+  it("aceita a opção nova no envio e recusa código inexistente", async () => {
+    const good = await submit({ profession: "physiotherapist", scores: ALL4, profile: { experienceYears: "mais_de_10_anos" } });
+    expect(good.status).toBe(201);
+    const [row] = await query<{ experience_years: string; ivent_experience: string | null }>(
+      `SELECT experience_years, ivent_experience FROM participants ORDER BY created_at DESC LIMIT 1`,
+    );
+    // Campo oculto: a resposta de um rascunho antigo é descartada.
+    expect(row).toEqual({ experience_years: "mais_de_10_anos", ivent_experience: null });
+    const bad = await submit({ profession: "physiotherapist", scores: ALL4, profile: { experienceYears: "inventado" } });
+    expect(bad.status).toBe(400);
+  });
+
+  it("painel e exportações mostram o rótulo configurado", async () => {
+    const data = await admin.json(`/api/admin/participants?surveyId=${surveyId}`);
+    const labels = data.distributions.experienceYears.map((d: Json) => d.label);
+    expect(labels).toContain("Mais de 10 anos");
+    const csv = await (await admin.request(`/api/admin/reports/csv?surveyId=${surveyId}&kind=respostas`)).text();
+    expect(csv).toContain("Mais de 10 anos");
+  });
+
+  it("não deixa apagar opção já salva nem deixar campo visível sem opções", async () => {
+    const current = await admin.json(path);
+    const removed = structuredClone(current);
+    removed.fields.simulatorExperience.options = removed.fields.simulatorExperience.options.slice(1);
+    const res = await admin.request(path, { method: "PUT", body: removed });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as Json).error.message).toContain("Nenhuma");
+
+    const empty = structuredClone(current);
+    empty.fields.simulatorExperience.options = empty.fields.simulatorExperience.options.map((o: Json) => ({ ...o, active: false }));
+    expect((await admin.request(path, { method: "PUT", body: empty })).status).toBe(400);
   });
 });

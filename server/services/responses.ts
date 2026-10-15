@@ -5,9 +5,11 @@
  */
 import { randomBytes } from "node:crypto";
 import type { QuestionDef } from "../../shared/domain.ts";
+import { checkProfileAnswers } from "../../shared/profileForm.ts";
 import { queryOne, withTransaction } from "../db.ts";
 import { badRequest, conflict, notFound } from "../http.ts";
 import type { SubmissionInput } from "../validation.ts";
+import { getProfileForm } from "./profileForm.ts";
 import { validateAnswers } from "./answerValidation.ts";
 import { getVersionQuestions } from "./surveys.ts";
 import { consumeInvite } from "./invites.ts";
@@ -74,6 +76,9 @@ async function insertSubmission(slug: string, input: SubmissionInput): Promise<S
     input.profile.profession,
   ]);
   if (!profession) throw badRequest("Categoria profissional inválida.");
+  const profileForm = await getProfileForm();
+  const profile = checkProfileAnswers(profileForm, input.profile);
+  if (!profile.ok) throw badRequest(`Opção inválida em "${profileForm.fields[profile.field].label}". Recarregue a página.`);
 
   const questions: QuestionDef[] = await getVersionQuestions(version.id);
   const answers = validateAnswers(questions, input.answers);
@@ -83,7 +88,7 @@ async function insertSubmission(slug: string, input: SubmissionInput): Promise<S
     const participant = await client.query<{ id: string }>(
       `INSERT INTO participants (anonymous_code, profession_code, experience_years, simulator_experience, ivent_experience)
        VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [code, profession.code, input.profile.experienceYears ?? null, input.profile.simulatorExperience ?? null, input.profile.iventExperience ?? null],
+      [code, profession.code, profile.values.experienceYears, profile.values.simulatorExperience, profile.values.iventExperience],
     );
     const response = await client.query<{ id: string }>(
       `INSERT INTO survey_responses (survey_id, survey_version_id, ivent_version_id, participant_id, idempotency_key, device_class, started_at)
