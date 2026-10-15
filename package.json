@@ -18,7 +18,8 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
     "backup": "sh scripts/backup.sh",
-    "verify": "npm run typecheck && npm test && npm run build"
+    "verify": "npm run typecheck && npm test && npm run build",
+    "tutoriais": "node --import tsx scripts/tutoriais/gravar.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

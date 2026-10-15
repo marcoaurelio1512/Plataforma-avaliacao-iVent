@@ -5,6 +5,7 @@
 import { AlertTriangle, Info, Lightbulb } from "lucide-react";
 import type { ReactNode } from "react";
 import { PageHeader } from "../components/PageHeader.tsx";
+import { TutorialIndex, TutorialVideo } from "../components/TutorialVideo.tsx";
 
 const SECTIONS: { id: string; title: string }[] = [
   { id: "visao-geral", title: "1. Visão geral e roteiro rápido" },
@@ -81,6 +82,8 @@ export default function HelpPage() {
               <li><b>Área do participante</b> — o link público (ou QR Code) onde residentes, fisioterapeutas e outros profissionais respondem, de forma anônima, pelo celular, tablet ou computador.</li>
               <li><b>Painel administrativo</b> — esta área, protegida por login, onde você cria questionários, acompanha as respostas, analisa os resultados e gera relatórios.</li>
             </ul>
+            <p><b>Vídeos do guia</b> — cada um mostra uma parte da plataforma, com narração e legendas em português:</p>
+            <TutorialIndex />
             <p><b>Roteiro rápido do início ao fim:</b></p>
             <Steps>
               <li>Entre no painel e troque a senha inicial (<a href="#acesso">seção 2</a>).</li>
@@ -94,6 +97,7 @@ export default function HelpPage() {
           </Section>
 
           <Section id="acesso">
+            <TutorialVideo id="primeiro-acesso" />
             <Steps>
               <li>Acesse <code>/admin</code> no endereço da plataforma e entre com o e-mail e a senha do administrador.</li>
               <li>Vá em <b>Configurações → Segurança</b> e defina uma senha nova (mínimo de 10 caracteres, com letras e números). As outras sessões abertas são encerradas automaticamente.</li>
@@ -137,6 +141,7 @@ export default function HelpPage() {
           </Section>
 
           <Section id="editor">
+            <TutorialVideo id="criar-questionario" />
             <p>Use <b>Criar Questionário</b> (menu) ou <b>Editar</b> (no cartão da pesquisa). A tela tem três blocos.</p>
             <h3 className="help-h3">Apresentação</h3>
             <ul>
@@ -190,6 +195,7 @@ export default function HelpPage() {
           </Section>
 
           <Section id="publicar">
+            <TutorialVideo id="publicar-compartilhar" />
             <Steps>
               <li>Em <b>Pesquisas</b>, clique em <b>Publicar</b> no cartão do questionário.</li>
               <li>Clique em <b>Link e QR</b>: aparecem o link público exclusivo e o QR Code.</li>
@@ -220,6 +226,7 @@ export default function HelpPage() {
           </Section>
 
           <Section id="participante">
+            <TutorialVideo id="participante" />
             <p>O fluxo é sempre o mesmo, em uma tela por vez, com botões grandes no celular:</p>
             <Steps>
               <li><b>Bem-vindo</b> — título, instruções, aviso de anonimato e, se configurado, informações da pesquisa e termo de consentimento.</li>
@@ -238,6 +245,7 @@ export default function HelpPage() {
           </Section>
 
           <Section id="dashboard">
+            <TutorialVideo id="dashboard" />
             <p>O <b>Dashboard de Avaliação iVent NeoPed</b> resume a pesquisa selecionada no topo, respeitando os filtros.</p>
             <ul>
               <li><b>Cartões:</b> Média geral (todas as notas válidas das perguntas Likert, com n), Participantes, Respostas concluídas, Médicos residentes, Fisioterapeutas, Comentários por item e Respostas abertas.</li>
@@ -264,6 +272,7 @@ export default function HelpPage() {
           </Section>
 
           <Section id="dados">
+            <TutorialVideo id="dados-e-textos" />
             <p><b>Participantes</b> — distribuição dos perfis (profissão, experiência, simuladores, iVent, dispositivo) e a lista de participantes, cada um identificado apenas por um código anônimo (ex.: P-7K3QXA).</p>
             <p><b>Respostas</b> — tabela com uma linha por resposta e uma coluna por pergunta quantitativa (Q1, Q2…). Um asterisco indica que o item tem comentário. Clique em uma linha para ver a resposta completa, incluindo textos e comentários.</p>
           </Section>
@@ -344,6 +353,7 @@ export default function HelpPage() {
           </Section>
 
           <Section id="relatorios">
+            <TutorialVideo id="comparacoes-relatorios" />
             <p>Em <b>Relatórios</b>, os arquivos usam exatamente os filtros escolhidos na tela e os mesmos cálculos do Dashboard.</p>
             <ul>
               <li><b>Relatório PDF</b> — identificação da pesquisa, versão avaliada, período, participantes por profissão, metodologia, estatísticas por pergunta, gráficos de média e distribuição, comparação entre grupos, nuvem de palavras, comentários representativos, análise qualitativa, oportunidades de melhoria e limitações.</li>

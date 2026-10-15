@@ -387,8 +387,12 @@
   gap: var(--space-4);
 }
 
-.panel {
+/* O span só vale dentro da grade de 12 colunas: em outros grids criaria colunas implícitas. */
+:where(.panel-grid) > .panel {
   grid-column: span 12;
+}
+
+.panel {
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1432,4 +1436,73 @@ details[open] > summary {
     position: static;
     max-height: none;
   }
+}
+
+/* Vídeos do guia "Como usar" */
+.tutorial-video {
+  margin: 0 0 var(--space-2);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.tutorial-video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+
+.tutorial-video figcaption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+}
+
+.tutorial-video figcaption svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--oxygenation);
+}
+
+.tutorial-index {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-2);
+}
+
+.tutorial-index a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text);
+  text-decoration: none;
+  font-size: var(--font-sm);
+  transition: background-color var(--duration-fast, 150ms), border-color var(--duration-fast, 150ms);
+}
+
+.tutorial-index a:hover,
+.tutorial-index a:focus-visible {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+.tutorial-index svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--oxygenation);
 }
