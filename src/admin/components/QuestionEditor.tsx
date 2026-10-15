@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, ChevronUp, Copy, GripVertical, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
 import { QUESTION_TYPES, QUESTION_TYPE_LABELS, isQuantitative, isTextType, type QuestionDef, type QuestionType } from "../../../shared/domain.ts";
 
 export interface EditableQuestion extends QuestionDef {
@@ -80,8 +80,11 @@ export function QuestionEditor({ index, total, question: q, expanded, onToggle, 
           {!expanded && q.helpText && <span className="q-help dim">{q.helpText}</span>}
         </button>
         <div className="q-tools">
-          <button type="button" className="btn btn-ghost btn-icon btn-sm" disabled={index === 0} onClick={() => onMove(-1)} aria-label="Mover para cima"><ChevronUp /></button>
-          <button type="button" className="btn btn-ghost btn-icon btn-sm" disabled={index === total - 1} onClick={() => onMove(1)} aria-label="Mover para baixo"><ChevronDown /></button>
+          <button type="button" className={`btn btn-sm q-edit${expanded ? "" : " btn-primary"}`} onClick={onToggle} aria-expanded={expanded} aria-label={expanded ? `Fechar edição da pergunta ${index + 1}` : `Editar pergunta ${index + 1}`}>
+            {expanded ? <><X /> Fechar</> : <><Pencil /> Editar</>}
+          </button>
+          <button type="button" className="btn btn-ghost btn-icon btn-sm q-move" disabled={index === 0} onClick={() => onMove(-1)} aria-label="Mover para cima"><ChevronUp /></button>
+          <button type="button" className="btn btn-ghost btn-icon btn-sm q-move" disabled={index === total - 1} onClick={() => onMove(1)} aria-label="Mover para baixo"><ChevronDown /></button>
           <button type="button" className="btn btn-ghost btn-icon btn-sm" onClick={onDuplicate} aria-label="Duplicar pergunta"><Copy /></button>
           <button type="button" className="btn btn-ghost btn-icon btn-sm btn-danger" onClick={onRemove} aria-label="Excluir pergunta"><Trash2 /></button>
         </div>

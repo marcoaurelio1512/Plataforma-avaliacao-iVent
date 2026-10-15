@@ -987,7 +987,9 @@
 .q-help { font-size: 0.875em; white-space: pre-wrap; overflow-wrap: anywhere; }
 .q-body .textarea.q-autosize { field-sizing: content; min-height: 4.5em; }
 
-.q-tools { display: flex; gap: 2px; }
+.q-tools { display: flex; gap: 2px; align-items: center; }
+.q-tools .q-edit { margin-right: var(--space-2); }
+.q-summary:hover .q-text { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
 
 .q-body {
   display: grid;
@@ -1027,7 +1029,7 @@
 @media (max-width: 640px) {
   .q-head { grid-template-columns: auto minmax(0, 1fr) auto; }
   .q-index { display: none; }
-  .q-tools .btn:nth-child(-n + 2) { display: none; }
+  .q-tools .q-move { display: none; }
 }
 
 .dist-grid {

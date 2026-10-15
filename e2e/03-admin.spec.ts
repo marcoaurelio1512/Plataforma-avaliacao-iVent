@@ -103,7 +103,7 @@ test("editor: criar questionário, reordenar, prévia e versionar pesquisa com r
   await page.locator(".survey-card").filter({ hasText: "Avaliação de Interface, Usabilidade" }).getByRole("link", { name: "Editar" }).click();
   await expect(page.getByText(/já recebeu 2 resposta\(s\)/)).toBeVisible();
   await page.getByLabel("Título da seção de perguntas abertas").fill("Sua opinião sobre o iVent NeoPed (revisado)");
-  await page.locator(".q-summary").first().click();
+  await page.getByRole("button", { name: "Editar pergunta 1", exact: true }).click();
   await page.getByLabel("Texto da pergunta").first().fill("A interface do iVent é clara e organizada?");
   await expect(page.getByText(/Ao salvar: correção aplicada na v1/)).toBeVisible();
   page.once("dialog", (d) => d.accept());

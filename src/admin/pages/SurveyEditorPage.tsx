@@ -239,7 +239,7 @@ export default function SurveyEditorPage() {
                 <button type="button" className="btn btn-sm btn-ghost" onClick={() => setExpanded(new Set())}>Recolher todas</button>
               </div>
             </div>
-            <p className="panel-note">Arraste pela alça (ou use as setas) para reordenar.</p>
+            <p className="panel-note">Clique em <b>Editar</b> (ou no texto da pergunta) para alterar a pergunta e as opções de resposta. Arraste pela alça (ou use as setas) para reordenar.</p>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
               <SortableContext items={questions.map((q) => q.uid)} strategy={verticalListSortingStrategy}>
                 <ol className="q-list">
