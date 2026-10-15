@@ -4,6 +4,8 @@ Plataforma web exclusiva para avaliar o simulador **iVent NeoPed**: criação de
 
 É um **módulo independente**: não altera nenhum arquivo do iVent NeoPed. O iVent pode apenas apontar para ela por um link ou botão (veja [Integração com o iVent](#integração-com-o-ivent)).
 
+**Produção:** <https://plataforma-avaliacao-ivent-production.up.railway.app> (painel em `/admin`).
+
 ---
 
 ## Stack
@@ -165,7 +167,9 @@ Sem chave de IA, todo o restante funciona normalmente. A chave nunca chega ao na
 
 ## Integração com o iVent
 
-Não é preciso alterar nada no iVent para usar a plataforma. Quando quiser, basta um link ou botão no iVent apontando para o link público da pesquisa, que aparece em **Pesquisas → Link e QR**, por exemplo `https://SEU-DOMINIO/r/abc123xyz`. Também é possível exibir o QR Code em sala.
+O iVent já leva ao painel da plataforma pelo botão do admin (`src/components/admin/EvaluationPlatformLink.tsx`), que aponta para `https://plataforma-avaliacao-ivent-production.up.railway.app`; a variável `VITE_EVALUATION_PLATFORM_URL` troca o endereço sem mexer no código.
+
+Fora isso, não é preciso alterar nada no iVent para usar a plataforma. Quando quiser, basta um link ou botão no iVent apontando para o link público da pesquisa, que aparece em **Pesquisas → Link e QR**, por exemplo `https://SEU-DOMINIO/r/abc123xyz`. Também é possível exibir o QR Code em sala.
 
 ## Segurança e LGPD
 
