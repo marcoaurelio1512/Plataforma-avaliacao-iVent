@@ -162,3 +162,11 @@ export const LIMITS = {
   maxQuestions: 200,
   maxOptions: 50,
 } as const;
+
+/** Perfis de acesso ao painel: administrador gerencia tudo; pesquisador consulta e analisa. */
+export const USER_ROLES = ["admin", "researcher"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Administrador",
+  researcher: "Pesquisador",
+};

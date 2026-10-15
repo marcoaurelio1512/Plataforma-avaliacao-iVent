@@ -7,7 +7,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
-import { createAuthRoutes, requireAdmin } from "./auth.ts";
+import { createAuthRoutes, enforceAccess, requireAdmin } from "./auth.ts";
 import type { AppConfig } from "./config.ts";
 import type { AppEnv } from "./context.ts";
 import { getPool } from "./db.ts";
@@ -17,6 +17,7 @@ import { createAdminSettingsRoutes } from "./routes/adminSettings.ts";
 import { createAdminSurveyRoutes } from "./routes/adminSurveys.ts";
 import { createAdminInviteRoutes } from "./routes/adminInvites.ts";
 import { createPublicRoutes } from "./routes/public.ts";
+import { createAdminUserRoutes } from "./routes/adminUsers.ts";
 import { createReportRoutes } from "./routes/reports.ts";
 import { clientIp, hashIp, requireCsrfHeader } from "./security.ts";
 
@@ -85,7 +86,8 @@ export function createApp(config: AppConfig) {
   app.use("/api/auth/*", requireCsrfHeader);
   app.route("/", createAuthRoutes());
 
-  app.use("/api/admin/*", requireCsrfHeader, requireAdmin);
+  app.use("/api/admin/*", requireCsrfHeader, requireAdmin, enforceAccess);
+  app.route("/", createAdminUserRoutes());
   app.route("/", createAdminSurveyRoutes());
   app.route("/", createAdminInviteRoutes());
   app.route("/", createAdminDataRoutes());

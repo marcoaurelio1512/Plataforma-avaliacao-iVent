@@ -5,33 +5,40 @@ import { api, errorMessage } from "../../lib/api.ts";
 import { date, dateTime } from "../../lib/format.ts";
 import { useAsync } from "../../lib/useAsync.ts";
 import { PageHeader } from "../components/PageHeader.tsx";
+import { UsersPanel } from "../components/UsersPanel.tsx";
 import { useToast } from "../components/useToast.tsx";
 import { useScope } from "../scope.tsx";
+import { useSession } from "../session.tsx";
 import type { IventVersion, Profession } from "../types.ts";
 
-type Tab = "versions" | "professions" | "text" | "security" | "audit";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "versions", label: "Versões do iVent" },
-  { id: "professions", label: "Categorias profissionais" },
-  { id: "text", label: "Análise textual" },
-  { id: "security", label: "Segurança" },
-  { id: "audit", label: "Auditoria" },
+type Tab = "versions" | "professions" | "text" | "users" | "security" | "audit";
+/** `manage`: aba só para administradores; o pesquisador vê apenas Segurança. */
+const TABS: { id: Tab; label: string; manage: boolean }[] = [
+  { id: "versions", label: "Versões do iVent", manage: true },
+  { id: "professions", label: "Categorias profissionais", manage: true },
+  { id: "text", label: "Análise textual", manage: true },
+  { id: "users", label: "Usuários", manage: true },
+  { id: "security", label: "Segurança", manage: false },
+  { id: "audit", label: "Auditoria", manage: true },
 ];
 
 export default function SettingsPage() {
-  const [tab, setTab] = useState<Tab>("versions");
+  const { canManage } = useSession();
+  const tabs = TABS.filter((t) => canManage || !t.manage);
+  const [tab, setTab] = useState<Tab>(tabs[0]!.id);
   const toast = useToast();
   return (
     <>
       <PageHeader eyebrow="Sistema" title="Configurações" />
       <div className="tabs" role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t.id} type="button" role="tab" className="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
       </div>
       {tab === "versions" && <VersionsTab onDone={toast.show} />}
       {tab === "professions" && <ProfessionsTab onDone={toast.show} />}
       {tab === "text" && <TextTab onDone={toast.show} />}
+      {tab === "users" && <UsersPanel onDone={toast.show} />}
       {tab === "security" && <SecurityTab onDone={toast.show} />}
       {tab === "audit" && <AuditTab />}
       {toast.node}
@@ -238,7 +245,7 @@ function AuditTab() {
   return (
     <div className="table-wrap">
       <table className="table table-compact">
-        <thead><tr><th>Quando</th><th>Ação</th><th>Entidade</th><th>Administrador</th></tr></thead>
+        <thead><tr><th>Quando</th><th>Ação</th><th>Entidade</th><th>Usuário</th></tr></thead>
         <tbody>
           {state.data!.map((l) => (
             <tr key={l.id}><td>{dateTime(l.createdAt)}</td><td className="num">{l.action}</td><td className="dim">{l.entity ?? "—"}</td><td>{l.adminEmail ?? "—"}</td></tr>

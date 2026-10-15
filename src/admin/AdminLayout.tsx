@@ -22,16 +22,18 @@ import { NavLink, useLocation } from "react-router-dom";
 import { SURVEY_STATUS_LABELS } from "../../shared/domain.ts";
 import { Brand } from "../components/Brand.tsx";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
-import type { AdminUser } from "./AdminApp.tsx";
+import { USER_ROLE_LABELS } from "../../shared/domain.ts";
+import type { AdminUser } from "./session.tsx";
 import { useScope, useScopedLink } from "./scope.tsx";
 
-const NAV: { group: string; items: { to: string; label: string; icon: ReactNode; end?: boolean }[] }[] = [
+/** `manage`: só aparece para administradores. */
+const NAV: { group: string; items: { to: string; label: string; icon: ReactNode; end?: boolean; manage?: boolean }[] }[] = [
   {
     group: "Visão geral",
     items: [
       { to: "/admin", label: "Dashboard", icon: <LayoutDashboard />, end: true },
       { to: "/admin/pesquisas", label: "Pesquisas", icon: <ClipboardList />, end: true },
-      { to: "/admin/pesquisas/nova", label: "Criar Questionário", icon: <FilePlus2 /> },
+      { to: "/admin/pesquisas/nova", label: "Criar Questionário", icon: <FilePlus2 />, manage: true },
     ],
   },
   {
@@ -77,7 +79,7 @@ export function AdminLayout({ user, onLogout, children }: { user: AdminUser; onL
           {NAV.map((section) => (
             <div key={section.group} className="nav-group">
               <p className="nav-group-label">{section.group}</p>
-              {section.items.map((item) => (
+              {section.items.filter((item) => !item.manage || user.role === "admin").map((item) => (
                 <NavLink key={item.to} to={link(item.to)} end={item.end} className={({ isActive }) => `nav-link${isActive ? " is-active" : ""}`}>
                   {item.icon}
                   <span>{item.label}</span>
@@ -89,7 +91,10 @@ export function AdminLayout({ user, onLogout, children }: { user: AdminUser; onL
         <div className="sidebar-foot">
           <div className="user-chip" title={user.email}>
             <span className="user-avatar">{(user.name || user.email).slice(0, 1).toUpperCase()}</span>
-            <span className="user-email">{user.email}</span>
+            <span className="user-meta">
+              <span className="user-email">{user.email}</span>
+              <span className="user-role">{USER_ROLE_LABELS[user.role]}</span>
+            </span>
           </div>
           <button type="button" className="btn btn-ghost btn-icon" aria-label="Sair" title="Sair" onClick={onLogout}>
             <LogOut />

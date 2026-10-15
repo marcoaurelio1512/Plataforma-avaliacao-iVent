@@ -368,9 +368,22 @@ export default function HelpPage() {
               <li><b>Versões do iVent</b> — cadastrar e editar versões (nome, data de lançamento, notas). A ordem cronológica segue a data de lançamento.</li>
               <li><b>Categorias profissionais</b> — renomear, ativar/inativar e criar novas categorias (ex.: Enfermagem). Inativar remove a opção do formulário sem apagar respostas já recebidas. O código de uma categoria é permanente.</li>
               <li><b>Análise textual</b> — stopwords, expressões compostas e termos técnicos adicionais para a nuvem (um por linha). Ao salvar, a nuvem é recalculada.</li>
-              <li><b>Segurança</b> — troca de senha.</li>
-              <li><b>Auditoria</b> — registro de logins, alterações de pesquisas, exportações, convites e análises por IA, com data e administrador.</li>
+              <li><b>Usuários</b> — cadastro de outras pessoas da equipe (veja abaixo).</li>
+              <li><b>Segurança</b> — troca da sua senha.</li>
+              <li><b>Auditoria</b> — registro de logins, alterações de pesquisas, usuários, exportações, convites e análises por IA, com data e usuário.</li>
             </ul>
+            <h3 className="help-h3">Usuários e perfis</h3>
+            <p>Há dois perfis de acesso:</p>
+            <ul>
+              <li><b>Administrador</b> — acesso total: cria e edita questionários, publica, gera convites, altera configurações e cadastra usuários.</li>
+              <li><b>Pesquisador</b> — consulta Dashboard, respostas, comentários, nuvem, comparações e Análise por IA, abre a prévia e o link/QR Code e baixa relatórios. Não altera pesquisas, convites nem configurações; em Configurações vê apenas a aba Segurança.</li>
+            </ul>
+            <Steps>
+              <li>Em <b>Configurações → Usuários</b>, preencha nome, e-mail e perfil.</li>
+              <li>Digite uma <b>senha provisória</b> ou clique em <b>Gerar</b>, depois em <b>Cadastrar</b>. A senha aparece uma única vez: copie e entregue à pessoa por um canal seguro.</li>
+              <li>No primeiro acesso, a pessoa é obrigada a criar uma senha própria antes de ver qualquer dado.</li>
+            </Steps>
+            <p>Em <b>Editar</b> você muda o nome e o perfil ou usa <b>Redefinir senha</b> (gera nova senha provisória e encerra as sessões da pessoa). <b>Desativar</b> tira o acesso na hora, sem apagar o histórico; <b>Reativar</b> devolve. Ninguém pode mudar o próprio perfil nem desativar o próprio acesso, por isso sempre resta ao menos um administrador.</p>
           </Section>
 
           <Section id="estudo">
@@ -413,6 +426,8 @@ export default function HelpPage() {
               <dd>A chave de IA ainda não foi definida no servidor (variável <code>ANTHROPIC_API_KEY</code> no Railway). O restante funciona normalmente.</dd>
               <dt>O participante recebeu “Envio muito rápido”.</dt>
               <dd>É a proteção contra robôs. Peça que revise as respostas e envie novamente após alguns segundos.</dd>
+              <dt>Um colega esqueceu a senha.</dt>
+              <dd>Um administrador abre <b>Configurações → Usuários → Editar → Redefinir senha</b> e entrega a nova senha provisória.</dd>
               <dt>Esqueci a senha do administrador.</dt>
               <dd>No Railway, defina temporariamente <code>ADMIN_RESET_PASSWORD=true</code> junto com a nova <code>ADMIN_PASSWORD</code>, reinicie o serviço, entre e depois remova <code>ADMIN_RESET_PASSWORD</code>.</dd>
             </dl>

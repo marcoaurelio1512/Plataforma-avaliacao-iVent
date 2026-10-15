@@ -11,6 +11,7 @@ import { SharePanel } from "../components/SharePanel.tsx";
 import { InvitesPanel } from "../components/InvitesPanel.tsx";
 import { useToast } from "../components/useToast.tsx";
 import { useScope } from "../scope.tsx";
+import { useSession } from "../session.tsx";
 import type { SurveySummary } from "../types.ts";
 
 type Action = "publish" | "close" | "reopen" | "archive" | "unarchive";
@@ -22,6 +23,7 @@ const CONFIRM: Partial<Record<Action, string>> = {
 
 export default function SurveysPage() {
   const { surveys, surveysLoading, reloadSurveys, setSurveyId } = useScope();
+  const { canManage } = useSession();
   const [sharing, setSharing] = useState<SurveySummary | null>(null);
   const [inviting, setInviting] = useState<SurveySummary | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -65,7 +67,7 @@ export default function SurveysPage() {
         eyebrow="Gerenciador de questionários"
         title="Pesquisas"
         description="Crie, publique, encerre e compartilhe questionários. Pesquisas com respostas ganham nova versão ao serem editadas — o histórico nunca é alterado."
-        actions={<Link className="btn btn-primary" to="/admin/pesquisas/nova"><FilePlus2 /> Criar questionário</Link>}
+        actions={canManage && <Link className="btn btn-primary" to="/admin/pesquisas/nova"><FilePlus2 /> Criar questionário</Link>}
       />
       {error != null && <ErrorState error={error} />}
       {surveysLoading && <Loading />}
@@ -89,20 +91,20 @@ export default function SurveysPage() {
               </p>
             </div>
             <div className="survey-card-actions">
-              {s.status === "draft" && <button type="button" className="btn btn-primary btn-sm" disabled={busy === s.id} onClick={() => status(s, "publish")}><Play /> Publicar</button>}
-              {s.status === "published" && <button type="button" className="btn btn-sm" disabled={busy === s.id} onClick={() => status(s, "close")}><Lock /> Encerrar</button>}
-              {s.status === "closed" && <button type="button" className="btn btn-sm" disabled={busy === s.id} onClick={() => status(s, "reopen")}><RotateCcw /> Reabrir</button>}
+              {canManage && s.status === "draft" && <button type="button" className="btn btn-primary btn-sm" disabled={busy === s.id} onClick={() => status(s, "publish")}><Play /> Publicar</button>}
+              {canManage && s.status === "published" && <button type="button" className="btn btn-sm" disabled={busy === s.id} onClick={() => status(s, "close")}><Lock /> Encerrar</button>}
+              {canManage && s.status === "closed" && <button type="button" className="btn btn-sm" disabled={busy === s.id} onClick={() => status(s, "reopen")}><RotateCcw /> Reabrir</button>}
               {s.status !== "archived" && <button type="button" className="btn btn-sm" onClick={() => setSharing(s)}><QrCode /> Link e QR</button>}
-              {s.status !== "archived" && <button type="button" className="btn btn-sm" onClick={() => setInviting(s)}><KeyRound /> Convites</button>}
-              {s.status !== "archived" && <Link className="btn btn-sm" to={`/admin/pesquisas/${s.id}`}><Pencil /> Editar</Link>}
+              {canManage && s.status !== "archived" && <button type="button" className="btn btn-sm" onClick={() => setInviting(s)}><KeyRound /> Convites</button>}
+              {canManage && s.status !== "archived" && <Link className="btn btn-sm" to={`/admin/pesquisas/${s.id}`}><Pencil /> Editar</Link>}
               <Link className="btn btn-sm btn-ghost" to={`/admin/pesquisas/${s.id}/previa`}><Eye /> Prévia</Link>
-              <button type="button" className="btn btn-sm btn-ghost" disabled={busy === s.id} onClick={() => duplicate(s)}><Copy /> Duplicar</button>
-              {s.status !== "archived" ? (
+              {canManage && <button type="button" className="btn btn-sm btn-ghost" disabled={busy === s.id} onClick={() => duplicate(s)}><Copy /> Duplicar</button>}
+              {canManage && (s.status !== "archived" ? (
                 <button type="button" className="btn btn-sm btn-ghost" disabled={busy === s.id} onClick={() => status(s, "archive")}><Archive /> Arquivar</button>
               ) : (
                 <button type="button" className="btn btn-sm btn-ghost" disabled={busy === s.id} onClick={() => status(s, "unarchive")}><ArchiveRestore /> Desarquivar</button>
-              )}
-              {s.status === "draft" && s.responseCount === 0 && (
+              ))}
+              {canManage && s.status === "draft" && s.responseCount === 0 && (
                 <button type="button" className="btn btn-sm btn-ghost btn-danger" disabled={busy === s.id} onClick={() => remove(s)} aria-label="Excluir rascunho"><Trash2 /></button>
               )}
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setSurveyId(s.id); navigate(`/admin?survey=${s.id}`); }}>Ver resultados</button>

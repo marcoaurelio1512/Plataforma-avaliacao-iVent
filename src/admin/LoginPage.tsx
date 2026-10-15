@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { BrandMark } from "../components/Brand.tsx";
 import { ThemeToggle } from "../components/ThemeToggle.tsx";
 import { api, errorMessage } from "../lib/api.ts";
-import type { AdminUser } from "./AdminApp.tsx";
+import type { AdminUser } from "./session.tsx";
 
 export function LoginPage({ onLogin }: { onLogin: (u: AdminUser) => void }) {
   const [email, setEmail] = useState("");

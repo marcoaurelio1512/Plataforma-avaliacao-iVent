@@ -8,10 +8,11 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { z } from "zod";
 import type { AppEnv } from "./context.ts";
 import { query, queryOne } from "./db.ts";
-import { badRequest, ok, readJson, tooManyRequests, unauthorized } from "./http.ts";
+import { badRequest, forbidden, HttpError, ok, readJson, tooManyRequests, unauthorized } from "./http.ts";
 import { hashPassword, passwordPolicyError, verifyPassword } from "./password.ts";
 import { RateLimiter } from "./security.ts";
 import { loginSchema } from "./validation.ts";
+import type { UserRole } from "../shared/domain.ts";
 
 export const SESSION_COOKIE = "iva_session";
 const sha256 = (v: string) => createHash("sha256").update(v).digest("hex");
@@ -39,13 +40,37 @@ export async function audit(
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   const token = getCookie(c, SESSION_COOKIE);
   if (!token) throw unauthorized();
-  const row = await queryOne<{ id: string; email: string; name: string }>(
-    `SELECT a.id, a.email, a.name FROM admin_sessions s JOIN admin_users a ON a.id = s.admin_id
-      WHERE s.token_hash = $1 AND s.expires_at > now()`,
+  const row = await queryOne<{ id: string; email: string; name: string; role: UserRole; must_change_password: boolean }>(
+    `SELECT a.id, a.email, a.name, a.role, a.must_change_password FROM admin_sessions s JOIN admin_users a ON a.id = s.admin_id
+      WHERE s.token_hash = $1 AND s.expires_at > now() AND a.active`,
     [sha256(token)],
   );
   if (!row) throw unauthorized("Sessão expirada. Entre novamente.");
-  c.set("admin", row);
+  c.set("admin", { id: row.id, email: row.email, name: row.name, role: row.role, mustChangePassword: row.must_change_password });
+  await next();
+};
+
+/** Rotas exclusivas de administradores, inclusive para leitura. */
+const ADMIN_ONLY_PATH = /^\/api\/admin\/(users|audit)(\/|$)|^\/api\/admin\/surveys\/[^/]+\/invites/;
+/** Mutações liberadas ao pesquisador: rodar a análise por IA é consulta, não altera dados coletados. */
+const RESEARCHER_MUTATIONS = new Set(["POST /api/admin/ai/analyze"]);
+
+/**
+ * Aplica, depois de requireAdmin, a troca obrigatória de senha e as permissões do perfil.
+ * O pesquisador só lê (GET/HEAD), fora das rotas exclusivas de administradores.
+ */
+export const enforceAccess: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const admin = c.get("admin");
+  if (admin.mustChangePassword) {
+    throw new HttpError(403, "password_change_required", "Defina uma nova senha para continuar.");
+  }
+  if (admin.role !== "admin") {
+    const path = c.req.path;
+    const isRead = c.req.method === "GET" || c.req.method === "HEAD";
+    if (ADMIN_ONLY_PATH.test(path) || (!isRead && !RESEARCHER_MUTATIONS.has(`${c.req.method} ${path}`))) {
+      throw forbidden("Seu perfil (Pesquisador) não tem permissão para esta ação.");
+    }
+  }
   await next();
 };
 
@@ -59,8 +84,8 @@ export function createAuthRoutes() {
     if (!loginLimiter.take(`${ipHash}:${email}`) || !loginLimiter.take(`ip:${ipHash}`)) {
       throw tooManyRequests("Muitas tentativas de login. Aguarde alguns minutos.");
     }
-    const admin = await queryOne<{ id: string; email: string; name: string; password_hash: string }>(
-      `SELECT id, email, name, password_hash FROM admin_users WHERE lower(email) = $1`,
+    const admin = await queryOne<{ id: string; email: string; name: string; role: UserRole; must_change_password: boolean; password_hash: string }>(
+      `SELECT id, email, name, role, must_change_password, password_hash FROM admin_users WHERE lower(email) = $1 AND active`,
       [email],
     );
     const valid = await verifyPassword(password, admin?.password_hash ?? DUMMY_HASH);
@@ -84,7 +109,7 @@ export function createAuthRoutes() {
       maxAge: cfg.sessionTtlHours * 3600,
     });
     await audit(admin.id, "login", { ipHash });
-    return ok(c, { id: admin.id, email: admin.email, name: admin.name });
+    return ok(c, { id: admin.id, email: admin.email, name: admin.name, role: admin.role, mustChangePassword: admin.must_change_password });
   });
 
   app.post("/api/auth/logout", async (c) => {
@@ -103,7 +128,8 @@ export function createAuthRoutes() {
     if (!row || !(await verifyPassword(body.currentPassword, row.password_hash))) throw badRequest("Senha atual incorreta.");
     const policy = passwordPolicyError(body.newPassword);
     if (policy) throw badRequest(policy);
-    await query(`UPDATE admin_users SET password_hash = $1 WHERE id = $2`, [await hashPassword(body.newPassword), admin.id]);
+    if (body.newPassword === body.currentPassword) throw badRequest("A nova senha deve ser diferente da atual.");
+    await query(`UPDATE admin_users SET password_hash = $1, must_change_password = false WHERE id = $2`, [await hashPassword(body.newPassword), admin.id]);
     // Encerra as outras sessões; a atual continua válida.
     const current = sha256(getCookie(c, SESSION_COOKIE) ?? "");
     await query(`DELETE FROM admin_sessions WHERE admin_id = $1 AND token_hash <> $2`, [admin.id, current]);
