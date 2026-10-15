@@ -101,7 +101,15 @@ export function createApp(config: AppConfig) {
       await next();
       c.header("Cache-Control", "public, max-age=31536000, immutable");
     });
+    // A página da aplicação é sempre revalidada, para nunca apontar para arquivos já removidos.
+    app.use("*", async (c, next) => {
+      await next();
+      if (c.res.headers.get("content-type")?.startsWith("text/html")) c.header("Cache-Control", "no-cache");
+    });
     app.use("/*", serveStatic({ root: config.staticRoot }));
+    // Arquivo de uma publicação anterior: 404 claro. Devolver o index.html faria o
+    // navegador tentar executar HTML como código e a tela ficaria em branco.
+    app.get("/assets/*", (c) => c.text("Arquivo não encontrado.", 404));
     app.get("*", serveStatic({ root: config.staticRoot, path: "index.html" }));
   }
 

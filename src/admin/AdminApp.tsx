@@ -1,7 +1,9 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { ErrorBoundary } from "../components/ErrorBoundary.tsx";
 import { Loading } from "../components/States.tsx";
 import { api } from "../lib/api.ts";
+import { lazyPage } from "../lib/lazyPage.ts";
 import { AdminLayout } from "./AdminLayout.tsx";
 import { ChangePasswordPage } from "./ChangePasswordPage.tsx";
 import { LoginPage } from "./LoginPage.tsx";
@@ -9,20 +11,20 @@ import { ScopeProvider } from "./scope.tsx";
 import { SessionProvider, type AdminUser } from "./session.tsx";
 import "../styles/admin.css";
 
-const DashboardPage = lazy(() => import("./pages/DashboardPage.tsx"));
-const SurveysPage = lazy(() => import("./pages/SurveysPage.tsx"));
-const SurveyEditorPage = lazy(() => import("./pages/SurveyEditorPage.tsx"));
-const PreviewPage = lazy(() => import("./pages/PreviewPage.tsx"));
-const ParticipantsPage = lazy(() => import("./pages/ParticipantsPage.tsx"));
-const ResponsesPage = lazy(() => import("./pages/ResponsesPage.tsx"));
-const CommentsPage = lazy(() => import("./pages/CommentsPage.tsx"));
-const WordCloudPage = lazy(() => import("./pages/WordCloudPage.tsx"));
-const AiPage = lazy(() => import("./pages/AiPage.tsx"));
-const ComparePage = lazy(() => import("./pages/ComparePage.tsx"));
-const VersionsPage = lazy(() => import("./pages/VersionsPage.tsx"));
-const ReportsPage = lazy(() => import("./pages/ReportsPage.tsx"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage.tsx"));
-const HelpPage = lazy(() => import("./pages/HelpPage.tsx"));
+const DashboardPage = lazyPage(() => import("./pages/DashboardPage.tsx"));
+const SurveysPage = lazyPage(() => import("./pages/SurveysPage.tsx"));
+const SurveyEditorPage = lazyPage(() => import("./pages/SurveyEditorPage.tsx"));
+const PreviewPage = lazyPage(() => import("./pages/PreviewPage.tsx"));
+const ParticipantsPage = lazyPage(() => import("./pages/ParticipantsPage.tsx"));
+const ResponsesPage = lazyPage(() => import("./pages/ResponsesPage.tsx"));
+const CommentsPage = lazyPage(() => import("./pages/CommentsPage.tsx"));
+const WordCloudPage = lazyPage(() => import("./pages/WordCloudPage.tsx"));
+const AiPage = lazyPage(() => import("./pages/AiPage.tsx"));
+const ComparePage = lazyPage(() => import("./pages/ComparePage.tsx"));
+const VersionsPage = lazyPage(() => import("./pages/VersionsPage.tsx"));
+const ReportsPage = lazyPage(() => import("./pages/ReportsPage.tsx"));
+const SettingsPage = lazyPage(() => import("./pages/SettingsPage.tsx"));
+const HelpPage = lazyPage(() => import("./pages/HelpPage.tsx"));
 
 export default function AdminApp() {
   const [user, setUser] = useState<AdminUser | null | undefined>(undefined);
@@ -64,26 +66,29 @@ export default function AdminApp() {
     <SessionProvider user={user}>
       <ScopeProvider>
         <AdminLayout user={user} onLogout={logout}>
-          <Suspense fallback={<Loading />}>
-            <Routes>
-              <Route index element={<DashboardPage />} />
-              <Route path="pesquisas" element={<SurveysPage />} />
-              <Route path="pesquisas/nova" element={editor} />
-              <Route path="pesquisas/:id" element={editor} />
-              <Route path="pesquisas/:id/previa" element={<PreviewPage />} />
-              <Route path="participantes" element={<ParticipantsPage />} />
-              <Route path="respostas" element={<ResponsesPage />} />
-              <Route path="comentarios" element={<CommentsPage />} />
-              <Route path="nuvem" element={<WordCloudPage />} />
-              <Route path="ia" element={<AiPage />} />
-              <Route path="grupos" element={<ComparePage />} />
-              <Route path="versoes" element={<VersionsPage />} />
-              <Route path="relatorios" element={<ReportsPage />} />
-              <Route path="configuracoes" element={<SettingsPage />} />
-              <Route path="como-usar" element={<HelpPage />} />
-              <Route path="*" element={<Navigate to="/admin" replace />} />
-            </Routes>
-          </Suspense>
+          {/* key: um erro numa tela não bloqueia as outras — navegar já tenta de novo. */}
+          <ErrorBoundary key={location.pathname}>
+            <Suspense fallback={<Loading />}>
+              <Routes>
+                <Route index element={<DashboardPage />} />
+                <Route path="pesquisas" element={<SurveysPage />} />
+                <Route path="pesquisas/nova" element={editor} />
+                <Route path="pesquisas/:id" element={editor} />
+                <Route path="pesquisas/:id/previa" element={<PreviewPage />} />
+                <Route path="participantes" element={<ParticipantsPage />} />
+                <Route path="respostas" element={<ResponsesPage />} />
+                <Route path="comentarios" element={<CommentsPage />} />
+                <Route path="nuvem" element={<WordCloudPage />} />
+                <Route path="ia" element={<AiPage />} />
+                <Route path="grupos" element={<ComparePage />} />
+                <Route path="versoes" element={<VersionsPage />} />
+                <Route path="relatorios" element={<ReportsPage />} />
+                <Route path="configuracoes" element={<SettingsPage />} />
+                <Route path="como-usar" element={<HelpPage />} />
+                <Route path="*" element={<Navigate to="/admin" replace />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </AdminLayout>
       </ScopeProvider>
     </SessionProvider>
