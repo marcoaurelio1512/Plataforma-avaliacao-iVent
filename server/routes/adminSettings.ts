@@ -1,4 +1,4 @@
-/** Configurações: categorias profissionais, formulário de perfil, versões do iVent, vocabulário da análise textual e auditoria. */
+/** Configurações: formulário de perfil (com as categorias profissionais), versões do iVent, vocabulário da análise textual e auditoria. */
 import { Hono } from "hono";
 import { z } from "zod";
 import { DEFAULT_PHRASES, PROTECTED_TERMS } from "../../shared/text.ts";
@@ -8,15 +8,8 @@ import type { AppEnv } from "../context.ts";
 import { query, queryOne } from "../db.ts";
 import { conflict, notFound, ok, readJson } from "../http.ts";
 import { aiConfig } from "../services/ai.ts";
-import { getProfileForm, profileFormSchema, saveProfileForm } from "../services/profileForm.ts";
+import { getProfileForm, profileFormInputSchema, saveProfileForm } from "../services/profileForm.ts";
 import { getTextSettings, saveTextSettings, textSettingsSchema } from "../services/textSettings.ts";
-
-const professionSchema = z.object({
-  code: z.string().trim().regex(/^[a-z0-9_]{2,60}$/, "Código: letras minúsculas, números e _."),
-  label: z.string().trim().min(2).max(120),
-  position: z.number().int().min(0).max(1000).default(0),
-  active: z.boolean().default(true),
-});
 
 const iventVersionSchema = z.object({
   label: z.string().trim().min(1).max(60),
@@ -52,32 +45,10 @@ export function createAdminSettingsRoutes() {
     return ok(c, rows);
   });
 
-  app.post("/api/admin/professions", async (c) => {
-    const p = await readJson(c, professionSchema);
-    const inserted = await query(`INSERT INTO professional_categories (code, label, position, active) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING code`, [
-      p.code, p.label, p.position, p.active,
-    ]);
-    if (!inserted.length) throw conflict("Já existe uma categoria com este código.");
-    await audit(c.get("admin").id, "profession_created", { entity: "profession", entityId: p.code, ipHash: c.get("ipHash") });
-    return ok(c, p, 201);
-  });
-
-  // O código não muda (respostas antigas o referenciam); rótulo, ordem e ativação sim.
-  app.put("/api/admin/professions/:code", async (c) => {
-    const code = c.req.param("code");
-    const p = await readJson(c, professionSchema.omit({ code: true }));
-    const updated = await query(`UPDATE professional_categories SET label = $2, position = $3, active = $4 WHERE code = $1 RETURNING code`, [
-      code, p.label, p.position, p.active,
-    ]);
-    if (!updated.length) throw notFound("Categoria não encontrada.");
-    await audit(c.get("admin").id, "profession_updated", { entity: "profession", entityId: code, ipHash: c.get("ipHash") });
-    return ok(c, { code, ...p });
-  });
-
   app.get("/api/admin/profile-form", async (c) => ok(c, await getProfileForm()));
 
   app.put("/api/admin/profile-form", async (c) => {
-    const saved = await saveProfileForm(await readJson(c, profileFormSchema));
+    const saved = await saveProfileForm(await readJson(c, profileFormInputSchema));
     await audit(c.get("admin").id, "profile_form_updated", { entity: "profile_form", ipHash: c.get("ipHash") });
     return ok(c, saved);
   });

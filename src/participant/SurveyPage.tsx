@@ -13,6 +13,7 @@ import { useAsync } from "../lib/useAsync.ts";
 import { CommentBox, QuestionInput, isAnswered } from "./QuestionInputs.tsx";
 import { Profile, Review, Thanks, Welcome } from "./Steps.tsx";
 import type { PublicSurvey } from "./types.ts";
+import { missingRequired } from "../../shared/profileForm.ts";
 import { useDraft } from "./useDraft.ts";
 import "../styles/participant.css";
 
@@ -118,7 +119,7 @@ function Flow({ survey, preview, inviteCode, onDone }: { survey: PublicSurvey; p
   const question = step >= firstQuestion && step < reviewStep ? questions[step - firstQuestion]! : null;
   const answer: AnswerInput = question ? draft.answers[question.id!] ?? { questionId: question.id! } : { questionId: "" };
   const missing = useMemo(() => questions.filter((q) => q.required && !isAnswered(q, draft.answers[q.id!])), [questions, draft.answers]);
-  const dirty = Object.keys(draft.answers).length > 0 || Boolean(draft.profile.profession);
+  const dirty = Object.keys(draft.answers).length > 0 || Boolean(draft.profile.profession) || Object.keys(draft.profile.answers).length > 0;
 
   // Rascunho antigo: descarta respostas de perguntas que não existem mais nesta versão.
   useEffect(() => {
@@ -162,7 +163,7 @@ function Flow({ survey, preview, inviteCode, onDone }: { survey: PublicSurvey; p
   // Na prévia o administrador navega livremente; preencher é opcional.
   const canAdvance = () => {
     if (preview) return true;
-    if (step === 1) return Boolean(draft.profile.profession);
+    if (step === 1) return !survey.profileForm || missingRequired(survey.profileForm, draft.profile) === null;
     if (question?.required) return isAnswered(question, answer);
     return true;
   };

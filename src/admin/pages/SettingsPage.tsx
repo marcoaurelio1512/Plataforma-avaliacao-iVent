@@ -1,4 +1,4 @@
-import { Plus, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { ErrorState, Loading } from "../../components/States.tsx";
 import { api, errorMessage } from "../../lib/api.ts";
@@ -10,13 +10,12 @@ import { UsersPanel } from "../components/UsersPanel.tsx";
 import { useToast } from "../components/useToast.tsx";
 import { useScope } from "../scope.tsx";
 import { useSession } from "../session.tsx";
-import type { IventVersion, Profession } from "../types.ts";
+import type { IventVersion } from "../types.ts";
 
-type Tab = "versions" | "professions" | "profile" | "text" | "users" | "security" | "audit";
+type Tab = "versions" | "profile" | "text" | "users" | "security" | "audit";
 /** `manage`: aba só para administradores; o pesquisador vê apenas Segurança. */
 const TABS: { id: Tab; label: string; manage: boolean }[] = [
   { id: "versions", label: "Versões do iVent", manage: true },
-  { id: "professions", label: "Categorias profissionais", manage: true },
   { id: "profile", label: "Tela de perfil", manage: true },
   { id: "text", label: "Análise textual", manage: true },
   { id: "users", label: "Usuários", manage: true },
@@ -38,7 +37,6 @@ export default function SettingsPage() {
         ))}
       </div>
       {tab === "versions" && <VersionsTab onDone={toast.show} />}
-      {tab === "professions" && <ProfessionsTab onDone={toast.show} />}
       {tab === "profile" && <ProfileFormPanel onDone={toast.show} />}
       {tab === "text" && <TextTab onDone={toast.show} />}
       {tab === "users" && <UsersPanel onDone={toast.show} />}
@@ -103,71 +101,6 @@ function VersionsTab({ onDone }: { onDone: (m: string) => void }) {
         <p className="panel-note">A ordem cronológica usa a data de lançamento. Associe a versão a uma pesquisa no editor do questionário.</p>
       </form>
     </div>
-  );
-}
-
-function ProfessionsTab({ onDone }: { onDone: (m: string) => void }) {
-  const { reloadReference } = useScope();
-  const state = useAsync((signal) => api<Profession[]>("/api/admin/professions", { signal }), []);
-  const [form, setForm] = useState({ code: "", label: "" });
-  const [error, setError] = useState<string | null>(null);
-  const save = async (p: Profession, patch: Partial<Profession>) => {
-    setError(null);
-    try {
-      const next = { ...p, ...patch };
-      await api(`/api/admin/professions/${p.code}`, { method: "PUT", body: { label: next.label, position: next.position, active: next.active } });
-      state.reload();
-      reloadReference();
-      onDone("Categoria atualizada");
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  };
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      await api("/api/admin/professions", { method: "POST", body: { code: form.code, label: form.label, position: (state.data?.length ?? 0) + 1, active: true } });
-      setForm({ code: "", label: "" });
-      state.reload();
-      reloadReference();
-      onDone("Categoria criada");
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  };
-  if (state.loading) return <Loading />;
-  return (
-    <div className="split">
-      <section className="panel">
-        <h2 className="panel-title">Categorias</h2>
-        <p className="panel-note">Inativar remove a opção do formulário, sem apagar respostas já recebidas.</p>
-        <ul className="dist-list">
-          {state.data?.map((p) => (
-            <li key={p.code} className="row-between profession-row">
-              <ProfessionLabel profession={p} onSave={(label) => save(p, { label })} />
-              <span className="dim num">{p.participants} part.</span>
-              <label className="checkbox"><input type="checkbox" checked={p.active} onChange={(e) => save(p, { active: e.target.checked })} /> ativa</label>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <form className="panel" onSubmit={add}>
-        <h2 className="panel-title">Nova categoria</h2>
-        <div className="field"><label htmlFor="p-label">Nome exibido</label><input id="p-label" className="input" required value={form.label} placeholder="Enfermeiro(a)" onChange={(e) => setForm({ label: e.target.value, code: form.code || e.target.value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 60) })} /></div>
-        <div className="field"><label htmlFor="p-code">Código (permanente)</label><input id="p-code" className="input num" required pattern="[a-z0-9_]{2,60}" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} /></div>
-        {error && <div className="alert alert-error">{error}</div>}
-        <button type="submit" className="btn btn-primary"><Plus /> Adicionar</button>
-      </form>
-    </div>
-  );
-}
-
-function ProfessionLabel({ profession, onSave }: { profession: Profession; onSave: (label: string) => void }) {
-  const [value, setValue] = useState(profession.label);
-  useEffect(() => setValue(profession.label), [profession.label]);
-  return (
-    <input className="input grow" aria-label={`Nome de ${profession.code}`} value={value} onChange={(e) => setValue(e.target.value)} onBlur={() => value.trim() && value !== profession.label && onSave(value.trim())} />
   );
 }
 

@@ -1570,3 +1570,24 @@ details[open] > summary {
     flex-basis: 100%;
   }
 }
+
+.profile-questions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.profile-question-flags {
+  align-items: end;
+  gap: var(--space-5);
+}
+
+.profile-question-flags .select {
+  min-width: 180px;
+}
+
+.profile-confirm {
+  align-items: flex-start;
+}

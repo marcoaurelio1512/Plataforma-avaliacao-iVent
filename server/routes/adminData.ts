@@ -2,7 +2,7 @@
 import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { PHYSIO, RESIDENT, isQuantitative } from "../../shared/domain.ts";
-import { profileOptionLabel } from "../../shared/profileForm.ts";
+import { profileAnswerLabel, type ProfileField } from "../../shared/profileForm.ts";
 import { buildWordCloud } from "../../shared/text.ts";
 import { PRIORITY_FORMULA } from "../../shared/themes.ts";
 import { audit } from "../auth.ts";
@@ -12,7 +12,7 @@ import { HttpError, notFound, ok, readJson, tooManyRequests } from "../http.ts";
 import { RateLimiter } from "../security.ts";
 import { aiConfig, analyzeFeedback, type AiAnalysisResult } from "../services/ai.ts";
 import { compareProfessions, overview, questionStats, textDocuments, timeline, type TextMeta } from "../services/analytics.ts";
-import { loadDataset, type Dataset } from "../services/dataset.ts";
+import { loadDataset, profileColumns, type Dataset } from "../services/dataset.ts";
 import { latestAiAnalysis, professionLabels } from "../services/exports/reportData.ts";
 import { computePriorities, keywordThemeAssignments } from "../services/priorities.ts";
 import { getTextSettings } from "../services/textSettings.ts";
@@ -78,29 +78,34 @@ export function createAdminDataRoutes() {
 
   app.get("/api/admin/participants", async (c) => {
     const ds = await loadDataset(parseFilters(c));
-    const count = (pick: (r: Dataset["responses"][number]) => string) => {
+    const columns = profileColumns(ds).map((p) => p.field);
+    const distribution = (labelsOf: (r: Dataset["responses"][number]) => string[]) => {
       const map = new Map<string, number>();
-      for (const r of ds.responses) map.set(pick(r), (map.get(pick(r)) ?? 0) + 1);
+      for (const r of ds.responses) for (const label of labelsOf(r)) map.set(label, (map.get(label) ?? 0) + 1);
       return [...map.entries()].map(([label, n]) => ({ label, n })).sort((a, b) => b.n - a.n);
     };
+    const choiceLabels = (field: ProfileField) => (r: Dataset["responses"][number]) => {
+      const value = r.profileAnswers[field.key];
+      return Array.isArray(value) && value.length ? value.map((v) => profileAnswerLabel(field, v)) : [profileAnswerLabel(field, value)];
+    };
+    const professionLabel = ds.profileForm.profession?.label ?? "Categoria profissional";
+    const hasProfession = Boolean(ds.profileForm.profession) || ds.responses.some((r) => r.profession);
     return ok(c, {
+      professionLabel: hasProfession ? professionLabel : null,
+      columns: columns.map((f) => ({ key: f.key, label: f.label })),
       participants: ds.responses.map((r) => ({
         code: r.participantCode,
         responseId: r.id,
         profession: r.professionLabel,
-        experienceYears: profileOptionLabel(ds.profileForm, "experienceYears", r.experienceYears),
-        simulatorExperience: profileOptionLabel(ds.profileForm, "simulatorExperience", r.simulatorExperience),
-        iventExperience: profileOptionLabel(ds.profileForm, "iventExperience", r.iventExperience),
+        answers: Object.fromEntries(columns.map((f) => [f.key, profileAnswerLabel(f, r.profileAnswers[f.key])])),
         deviceClass: r.deviceClass,
         submittedAt: r.submittedAt.toISOString(),
       })),
-      distributions: {
-        profession: count((r) => r.professionLabel),
-        experienceYears: count((r) => profileOptionLabel(ds.profileForm, "experienceYears", r.experienceYears)),
-        simulatorExperience: count((r) => profileOptionLabel(ds.profileForm, "simulatorExperience", r.simulatorExperience)),
-        iventExperience: count((r) => profileOptionLabel(ds.profileForm, "iventExperience", r.iventExperience)),
-        device: count((r) => r.deviceClass ?? "Não informado"),
-      },
+      distributions: [
+        ...(hasProfession ? [{ key: "profession", title: professionLabel, rows: distribution((r) => [r.professionLabel]) }] : []),
+        ...columns.filter((f) => f.type !== "text").map((f) => ({ key: f.key, title: f.label, rows: distribution(choiceLabels(f)) })),
+        { key: "device", title: "Dispositivo usado", rows: distribution((r) => [r.deviceClass ?? "Não informado"]) },
+      ],
     });
   });
 

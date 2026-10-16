@@ -4,6 +4,8 @@
 import { z } from "zod";
 import { LIMITS, QUESTION_TYPES, SECTIONS, SPECIAL_ANSWERS } from "../shared/domain.ts";
 
+const MAX_PROFILE_FIELDS = 30;
+const MAX_PROFILE_OPTIONS = 50;
 const trimmed = (max: number) => z.string().trim().max(max);
 const optionalText = (max: number) => z.string().trim().max(max).nullish().transform((v) => (v ? v : null));
 
@@ -91,12 +93,22 @@ export const submissionSchema = z.object({
   inviteCode: z.string().regex(/^[a-z0-9]{8,24}$/).nullish(),
   // Campo-armadilha: invisível para pessoas, preenchido por robôs.
   website: z.string().max(200).optional(),
-  profile: z.object({
-    profession: z.string().trim().min(1).max(60),
-    experienceYears: z.string().max(30).nullish(),
-    simulatorExperience: z.string().max(30).nullish(),
-    iventExperience: z.string().max(30).nullish(),
-  }),
+  profile: z
+    .object({
+      profession: z.string().trim().max(60).nullish(),
+      answers: z
+        .record(z.string().max(60), z.union([z.string().max(LIMITS.shortText), z.array(z.string().max(60)).max(MAX_PROFILE_OPTIONS)]).nullable())
+        .refine((a) => Object.keys(a).length <= MAX_PROFILE_FIELDS, "Perfil com perguntas demais.")
+        .optional(),
+      // Formato anterior (página aberta antes da atualização): três campos fixos.
+      experienceYears: z.string().max(30).nullish(),
+      simulatorExperience: z.string().max(30).nullish(),
+      iventExperience: z.string().max(30).nullish(),
+    })
+    .transform(({ profession, answers, experienceYears, simulatorExperience, iventExperience }) => ({
+      profession: profession || null,
+      answers: { experienceYears, simulatorExperience, iventExperience, ...answers },
+    })),
   answers: z.array(answerSchema).max(LIMITS.maxQuestions),
 });
 export type SubmissionInput = z.infer<typeof submissionSchema>;

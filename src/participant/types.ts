@@ -1,4 +1,4 @@
-import type { AnswerInput, ProfileInput, ProfileOption, QuestionDef } from "../../shared/domain.ts";
+import type { AnswerInput, ProfileInput, QuestionDef } from "../../shared/domain.ts";
 import type { PublicProfileForm } from "../../shared/profileForm.ts";
 
 export interface PublicSurvey {
@@ -21,7 +21,6 @@ export interface PublicSurvey {
     protocolNumber: string | null;
   };
   questions?: QuestionDef[];
-  professions?: ProfileOption[];
   /** Textos, campos opcionais e opções da tela de perfil (editáveis em Configurações). */
   profileForm?: PublicProfileForm;
 }

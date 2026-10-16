@@ -33,7 +33,7 @@ interface SubmitOptions {
   website?: string;
   versionId?: string;
   inviteCode?: string;
-  profile?: Record<string, string | null>;
+  profile?: Json;
 }
 
 async function submit(o: SubmitOptions, payload?: Json): Promise<Response> {
@@ -604,73 +604,120 @@ describe("convites de uso único", () => {
   });
 });
 
-describe("formulário de perfil editável", () => {
+describe("tela de perfil editável", () => {
   const path = "/api/admin/profile-form";
   const ALL4 = [4, 4, 4, 4, 4, 4, 4, 4, 4, 4];
-  let original: Json;
+  const lastParticipant = async () =>
+    (await query<{ profession_code: string | null; profile_answers: Json }>(`SELECT profession_code, profile_answers FROM participants ORDER BY created_at DESC LIMIT 1`))[0]!;
+  const save = (body: Json) => admin.request(path, { method: "PUT", body });
+  let form: Json;
 
-  beforeAll(async () => {
-    original = await admin.json(path);
-  });
-
-  // Restaurar pela API seria apagar a opção nova (recusado de propósito); volta ao padrão direto no banco.
+  // Volta ao padrão: sem configuração salva e com as categorias iniciais.
   afterAll(async () => {
     await query(`DELETE FROM app_settings WHERE key = 'profile_form'`);
+    await runSeed({ ADMIN_EMAIL: ADMIN.email, ADMIN_PASSWORD: ADMIN.password, NODE_ENV: "test" } as NodeJS.ProcessEnv);
   });
 
-  it("devolve os textos e opções padrão enquanto nada foi salvo", () => {
-    expect(original.title).toBe("Conte um pouco sobre você");
-    expect(original.fields.experienceYears.options.map((o: Json) => o.code)).toEqual(["lt1", "1to3", "4to5", "gt5"]);
+  it("parte do padrão: profissão com as categorias cadastradas e três perguntas de escolha única", async () => {
+    form = await admin.json(path);
+    expect(form.profession.options.map((o: Json) => o.code)).toEqual(["resident_neonatology", "physiotherapist"]);
+    expect(form.fields.map((f: Json) => [f.key, f.type])).toEqual([["experienceYears", "single"], ["simulatorExperience", "single"], ["iventExperience", "single"]]);
   });
 
-  it("salva textos, renomeia, oculta e adiciona opções; o participante vê a nova tela", async () => {
-    const next = structuredClone(original);
+  it("respostas no formato antigo (página aberta antes da atualização) continuam aceitas", async () => {
+    expect((await submit({ profession: "physiotherapist", scores: ALL4 })).status).toBe(201);
+    expect((await lastParticipant()).profile_answers).toEqual({ experienceYears: "1to3", simulatorExperience: "basic", iventExperience: "first" });
+  });
+
+  it("cria perguntas de texto e múltipla escolha e nova categoria; o participante vê e responde", async () => {
+    const next = structuredClone(form);
     next.title = "Seu perfil";
-    next.fields.experienceYears.label = "Anos de prática";
-    next.fields.experienceYears.options[0].label = "Até 1 ano";
-    next.fields.experienceYears.options[3].active = false;
-    next.fields.experienceYears.options.push({ code: "", label: "Mais de 10 anos", active: true });
-    next.fields.iventExperience.enabled = false;
-    const saved = await admin.json(path, { method: "PUT", body: next });
-    expect(saved.fields.experienceYears.options.at(-1)).toEqual({ code: "mais_de_10_anos", label: "Mais de 10 anos", active: true });
+    next.profession.options.push({ code: "", label: "Enfermeiro(a)", active: true });
+    next.fields.push({ key: "", label: "Instituição", type: "text", required: true, enabled: true, options: [] });
+    next.fields.push({ key: "", label: "Unidades onde atua", type: "multiple", required: false, enabled: true, options: [{ code: "", label: "UTI neonatal", active: true }, { code: "", label: "UTI pediátrica", active: true }] });
+    form = await admin.json(path, { method: "PUT", body: next });
+    expect(form.fields.slice(3).map((f: Json) => f.key)).toEqual(["instituicao", "unidades_onde_atua"]);
+    expect(form.profession.options.at(-1).code).toBe("enfermeiro_a");
 
-    const form = (await publicSurvey()).profileForm;
-    expect(form.title).toBe("Seu perfil");
-    expect(form.fields.map((f: Json) => f.key)).toEqual(["experienceYears", "simulatorExperience"]);
-    expect(form.fields[0].label).toBe("Anos de prática");
-    expect(form.fields[0].options.map((o: Json) => o.code)).toEqual(["lt1", "1to3", "4to5", "mais_de_10_anos"]);
+    const pub = (await publicSurvey()).profileForm;
+    expect(pub.title).toBe("Seu perfil");
+    expect(pub.profession.options.map((o: Json) => o.label)).toContain("Enfermeiro(a)");
+    expect(pub.fields.map((f: Json) => f.key)).toEqual(["experienceYears", "simulatorExperience", "iventExperience", "instituicao", "unidades_onde_atua"]);
+
+    // Obrigatória sem resposta: recusado.
+    expect((await submit({ profession: "enfermeiro_a", scores: ALL4 })).status).toBe(400);
+    const res = await submit({ profession: "enfermeiro_a", scores: ALL4, profile: { answers: { instituicao: "Hospital X", unidades_onde_atua: ["uti_neonatal", "uti_pediatrica"], experienceYears: "gt5" } } });
+    expect(res.status).toBe(201);
+    expect(await lastParticipant()).toEqual({
+      profession_code: "enfermeiro_a",
+      profile_answers: { experienceYears: "gt5", simulatorExperience: "basic", iventExperience: "first", instituicao: "Hospital X", unidades_onde_atua: ["uti_neonatal", "uti_pediatrica"] },
+    });
   });
 
-  it("aceita a opção nova no envio e recusa código inexistente", async () => {
-    const good = await submit({ profession: "physiotherapist", scores: ALL4, profile: { experienceYears: "mais_de_10_anos" } });
-    expect(good.status).toBe(201);
-    const [row] = await query<{ experience_years: string; ivent_experience: string | null }>(
-      `SELECT experience_years, ivent_experience FROM participants ORDER BY created_at DESC LIMIT 1`,
-    );
-    // Campo oculto: a resposta de um rascunho antigo é descartada.
-    expect(row).toEqual({ experience_years: "mais_de_10_anos", ivent_experience: null });
-    const bad = await submit({ profession: "physiotherapist", scores: ALL4, profile: { experienceYears: "inventado" } });
-    expect(bad.status).toBe(400);
-  });
-
-  it("painel e exportações mostram o rótulo configurado", async () => {
+  it("painel de participantes e CSV mostram as novas perguntas", async () => {
     const data = await admin.json(`/api/admin/participants?surveyId=${surveyId}`);
-    const labels = data.distributions.experienceYears.map((d: Json) => d.label);
-    expect(labels).toContain("Mais de 10 anos");
+    expect(data.columns.map((c: Json) => c.label)).toContain("Unidades onde atua");
+    const units = data.distributions.find((d: Json) => d.key === "unidades_onde_atua");
+    expect(units.rows.map((r: Json) => r.label)).toEqual(expect.arrayContaining(["UTI neonatal", "UTI pediátrica"]));
+    expect(data.participants.find((p: Json) => p.profession === "Enfermeiro(a)").answers.instituicao).toBe("Hospital X");
     const csv = await (await admin.request(`/api/admin/reports/csv?surveyId=${surveyId}&kind=respostas`)).text();
-    expect(csv).toContain("Mais de 10 anos");
+    expect(csv.split("\n")[0]).toContain("tempo_experiencia");
+    expect(csv.split("\n")[0]).toContain("perfil_unidades_onde_atua");
+    expect(csv).toContain("UTI neonatal; UTI pediátrica");
   });
 
-  it("não deixa apagar opção já salva nem deixar campo visível sem opções", async () => {
-    const current = await admin.json(path);
-    const removed = structuredClone(current);
-    removed.fields.simulatorExperience.options = removed.fields.simulatorExperience.options.slice(1);
-    const res = await admin.request(path, { method: "PUT", body: removed });
-    expect(res.status).toBe(409);
-    expect(((await res.json()) as Json).error.message).toContain("Nenhuma");
+  it("não deixa trocar o tipo de pergunta já salva", async () => {
+    const next = structuredClone(form);
+    next.fields[3].type = "single";
+    next.fields[3].options = [{ code: "", label: "A", active: true }];
+    expect((await save(next)).status).toBe(400);
+  });
 
-    const empty = structuredClone(current);
-    empty.fields.simulatorExperience.options = empty.fields.simulatorExperience.options.map((o: Json) => ({ ...o, active: false }));
-    expect((await admin.request(path, { method: "PUT", body: empty })).status).toBe(400);
+  it("apagar opção com respostas pede confirmação e então remove as respostas", async () => {
+    const next = structuredClone(form);
+    next.fields[4].options = next.fields[4].options.filter((o: Json) => o.code !== "uti_neonatal");
+    const res = await save(next);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as Json;
+    expect(body.error.code).toBe("confirm_deletions");
+    expect(body.error.details.impacts).toEqual([{ label: "Opção “UTI neonatal” de “Unidades onde atua”", answers: 1 }]);
+    // Nada mudou antes da confirmação.
+    expect((await lastParticipant()).profile_answers.unidades_onde_atua).toEqual(["uti_neonatal", "uti_pediatrica"]);
+
+    form = await admin.json(path, { method: "PUT", body: { ...next, confirmDeletions: true } });
+    expect((await lastParticipant()).profile_answers.unidades_onde_atua).toEqual(["uti_pediatrica"]);
+  });
+
+  it("apagar pergunta e categoria profissional remove do histórico", async () => {
+    const next = structuredClone(form);
+    next.fields = next.fields.filter((f: Json) => f.key !== "experienceYears");
+    next.profession.options = next.profession.options.filter((o: Json) => o.code !== "enfermeiro_a");
+    const res = await save(next);
+    expect(res.status).toBe(409);
+    const impacts = ((await res.json()) as Json).error.details.impacts.map((i: Json) => i.label);
+    expect(impacts).toEqual(["Opção “Enfermeiro(a)” de “Categoria profissional”", "Pergunta “Tempo de experiência”"]);
+    form = await admin.json(path, { method: "PUT", body: { ...next, confirmDeletions: true } });
+    const p = await lastParticipant();
+    expect(p.profession_code).toBeNull();
+    expect(p.profile_answers.experienceYears).toBeUndefined();
+    const [{ n }] = await query<{ n: number }>(`SELECT count(*) AS n FROM participants WHERE profile_answers ? 'experienceYears'`);
+    expect(Number(n)).toBe(0);
+    const data = await admin.json(`/api/admin/participants?surveyId=${surveyId}`);
+    expect(data.participants.some((x: Json) => x.profession === "Não informado")).toBe(true);
+  });
+
+  it("apagar a pergunta de categoria profissional: participante responde sem ela e o seed não a recria", async () => {
+    const next = { ...structuredClone(form), profession: null, confirmDeletions: true };
+    next.fields = next.fields.map((f: Json) => ({ ...f, required: false }));
+    form = await admin.json(path, { method: "PUT", body: next });
+    expect(form.profession).toBeNull();
+    const [{ n }] = await query<{ n: number }>(`SELECT count(*) AS n FROM participants WHERE profession_code IS NOT NULL`);
+    expect(Number(n)).toBe(0);
+    expect((await publicSurvey()).profileForm.profession).toBeNull();
+    expect((await submit({ profession: "", scores: ALL4, profile: { answers: {} } })).status).toBe(201);
+
+    await runSeed({ ADMIN_EMAIL: ADMIN.email, ADMIN_PASSWORD: ADMIN.password, NODE_ENV: "test" } as NodeJS.ProcessEnv);
+    const [{ c }] = await query<{ c: number }>(`SELECT count(*) AS c FROM professional_categories`);
+    expect(Number(c)).toBe(0);
   });
 });

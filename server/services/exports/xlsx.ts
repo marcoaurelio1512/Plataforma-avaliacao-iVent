@@ -4,10 +4,11 @@
  */
 import ExcelJS from "exceljs";
 import { SPECIAL_ANSWER_LABELS, isQuantitative } from "../../../shared/domain.ts";
-import { profileOptionLabel } from "../../../shared/profileForm.ts";
+import { profileAnswerLabel } from "../../../shared/profileForm.ts";
 import { safeCell, type CellValue } from "../../../shared/spreadsheetSafe.ts";
 import { GROUP_COMPARISON_NOTE } from "../../../shared/stats.ts";
 import { textDocuments } from "../analytics.ts";
+import { profileColumns } from "../dataset.ts";
 import type { ReportData } from "./reportData.ts";
 
 function addSheet(wb: ExcelJS.Workbook, name: string, header: string[], rows: CellValue[][], widths?: number[]): ExcelJS.Worksheet {
@@ -28,6 +29,7 @@ const round = (v: number | null | undefined, d = 2) => (v === null || v === unde
 
 export async function buildXlsx(data: ReportData): Promise<Buffer> {
   const { ds } = data;
+  const profile = profileColumns(ds);
   const wb = new ExcelJS.Workbook();
   wb.creator = "iVent NeoPed — Avaliação";
   wb.created = data.generatedAt;
@@ -35,13 +37,12 @@ export async function buildXlsx(data: ReportData): Promise<Buffer> {
   addSheet(
     wb,
     "Participantes",
-    ["Participante", "Profissão", "Tempo de experiência", "Experiência com simuladores", "Experiência com o iVent", "Dispositivo", "Enviado em", "Versão do iVent"],
+    ["Participante", "Profissão", ...profile.map((p) => p.field.label), "Dispositivo", "Enviado em", "Versão do iVent"],
     ds.responses.map((r) => [
-      r.participantCode, r.professionLabel, profileOptionLabel(ds.profileForm, "experienceYears", r.experienceYears),
-      profileOptionLabel(ds.profileForm, "simulatorExperience", r.simulatorExperience),
-      profileOptionLabel(ds.profileForm, "iventExperience", r.iventExperience), r.deviceClass ?? "", r.submittedAt, r.iventVersionLabel ?? "",
+      r.participantCode, r.professionLabel, ...profile.map((p) => profileAnswerLabel(p.field, r.profileAnswers[p.field.key])),
+      r.deviceClass ?? "", r.submittedAt, r.iventVersionLabel ?? "",
     ]),
-    [14, 34, 20, 26, 26, 12, 22, 16],
+    [14, 34, ...profile.map(() => 26), 12, 22, 16],
   );
 
   const quantQs = ds.questions.filter((q) => q.section === "quantitative");

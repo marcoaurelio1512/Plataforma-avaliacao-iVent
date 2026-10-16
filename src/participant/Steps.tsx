@@ -1,5 +1,6 @@
 import { ArrowRight, CheckCircle2, ClipboardCheck, Pencil, ShieldCheck } from "lucide-react";
 import type { ProfileInput, ProfileOption, QuestionDef } from "../../shared/domain.ts";
+import { PROFILE_TEXT_MAX, missingRequired, type ProfileAnswerValue } from "../../shared/profileForm.ts";
 import { answerSummary, isAnswered } from "./QuestionInputs.tsx";
 import type { AnswerMap, PublicSurvey } from "./types.ts";
 
@@ -68,13 +69,13 @@ export function Welcome({ survey, consent, onConsent, onStart, restored, onResta
   );
 }
 
-function OptionCards({ name, options, value, onChange, required }: { name: string; options: ProfileOption[]; value: string | null | undefined; onChange: (v: string | null) => void; required?: boolean }) {
+function OptionCards({ name, options, selected, onToggle, multiple = false }: { name: string; options: ProfileOption[]; selected: string[]; onToggle: (code: string) => void; multiple?: boolean }) {
   return (
-    <div className="option-cards" role="radiogroup" aria-label={name} aria-required={required}>
+    <div className="option-cards" role={multiple ? "group" : "radiogroup"} aria-label={name}>
       {options.map((o) => {
-        const active = value === o.code;
+        const active = selected.includes(o.code);
         return (
-          <button key={o.code} type="button" role="radio" aria-checked={active} className={`option-card${active ? " is-active" : ""}`} onClick={() => onChange(active && !required ? null : o.code)}>
+          <button key={o.code} type="button" role={multiple ? "checkbox" : "radio"} aria-checked={active} className={`option-card${active ? " is-active" : ""}`} onClick={() => onToggle(o.code)}>
             <span className="choice-mark" aria-hidden="true">{active && <CheckCircle2 />}</span>
             {o.label}
           </button>
@@ -84,8 +85,39 @@ function OptionCards({ name, options, value, onChange, required }: { name: strin
   );
 }
 
+type PublicField = NonNullable<PublicSurvey["profileForm"]>["fields"][number];
+
+function ProfileQuestion({ field, value, onChange }: { field: PublicField; value: ProfileAnswerValue | undefined; onChange: (v: ProfileAnswerValue | undefined) => void }) {
+  if (field.type === "text") {
+    return <input className="input" aria-label={field.label} maxLength={PROFILE_TEXT_MAX} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value || undefined)} />;
+  }
+  const selected = Array.isArray(value) ? value : value ? [value] : [];
+  const toggle = (code: string) => {
+    if (field.type === "multiple") {
+      const next = selected.includes(code) ? selected.filter((c) => c !== code) : [...selected, code];
+      onChange(next.length ? next : undefined);
+    } else {
+      onChange(selected.includes(code) && !field.required ? undefined : code);
+    }
+  };
+  return (
+    <>
+      {field.type === "multiple" && <p className="hint">Selecione todas as opções que se aplicam.</p>}
+      <OptionCards name={field.label} options={field.options} selected={selected} onToggle={toggle} multiple={field.type === "multiple"} />
+    </>
+  );
+}
+
+const RequiredTag = ({ required }: { required: boolean }) => (required ? <span className="req">obrigatório</span> : <span className="opt">opcional</span>);
+
 export function Profile({ survey, profile, onChange, showError }: { survey: PublicSurvey; profile: ProfileInput; onChange: (p: ProfileInput) => void; showError: boolean }) {
   const form = survey.profileForm!;
+  const missing = showError ? missingRequired(form, profile) : null;
+  const setAnswer = (key: string, value: ProfileAnswerValue | undefined) => {
+    const { [key]: _removed, ...rest } = profile.answers;
+    onChange({ ...profile, answers: value === undefined ? rest : { ...rest, [key]: value } });
+  };
+  const errorFor = (label: string) => missing === label && <p className="field-error" role="alert">Responda “{label}” para continuar.</p>;
   return (
     <section className="stack-lg" aria-labelledby="profile-title">
       <div className="stack-sm">
@@ -93,15 +125,23 @@ export function Profile({ survey, profile, onChange, showError }: { survey: Publ
         <h2 id="profile-title" className="step-title">{form.title}</h2>
         {form.subtitle && <p className="muted">{form.subtitle}</p>}
       </div>
-      <fieldset className="profile-group">
-        <legend>{form.professionLabel} <span className="req">obrigatório</span></legend>
-        <OptionCards name={form.professionLabel} options={survey.professions!} value={profile.profession} required onChange={(v) => onChange({ ...profile, profession: v ?? "" })} />
-        {showError && !profile.profession && <p className="field-error" role="alert">Selecione uma opção em “{form.professionLabel}” para continuar.</p>}
-      </fieldset>
+      {form.profession && (
+        <fieldset className="profile-group">
+          <legend>{form.profession.label} <RequiredTag required={form.profession.required} /></legend>
+          <OptionCards
+            name={form.profession.label}
+            options={form.profession.options}
+            selected={profile.profession ? [profile.profession] : []}
+            onToggle={(code) => onChange({ ...profile, profession: profile.profession === code && !form.profession!.required ? null : code })}
+          />
+          {errorFor(form.profession.label)}
+        </fieldset>
+      )}
       {form.fields.map((field) => (
         <fieldset key={field.key} className="profile-group">
-          <legend>{field.label} <span className="opt">opcional</span></legend>
-          <OptionCards name={field.label} options={field.options} value={profile[field.key]} onChange={(v) => onChange({ ...profile, [field.key]: v })} />
+          <legend>{field.label} <RequiredTag required={field.required} /></legend>
+          <ProfileQuestion field={field} value={profile.answers[field.key]} onChange={(v) => setAnswer(field.key, v)} />
+          {errorFor(field.label)}
         </fieldset>
       ))}
     </section>

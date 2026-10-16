@@ -6,7 +6,7 @@
 import { Hono } from "hono";
 import { publicProfileForm } from "../../shared/profileForm.ts";
 import type { AppEnv } from "../context.ts";
-import { query, queryOne } from "../db.ts";
+import { queryOne } from "../db.ts";
 import { badRequest, notFound, ok, readJson, tooManyRequests } from "../http.ts";
 import { log } from "../logger.ts";
 import { RateLimiter, signStart, verifyStart } from "../security.ts";
@@ -48,9 +48,6 @@ export async function publicSurveyPayload(where: { slug?: string; id?: string })
     `SELECT id, title, instructions, open_section_title FROM survey_versions WHERE id = $1`,
     [survey.current_version_id],
   );
-  const professions = await query<{ code: string; label: string }>(
-    `SELECT code, label FROM professional_categories WHERE active ORDER BY position, label`,
-  );
   return {
     surveyId: survey.id,
     inviteRequired: survey.require_invite,
@@ -70,7 +67,6 @@ export async function publicSurveyPayload(where: { slug?: string; id?: string })
       protocolNumber: survey.protocol_number,
     },
     questions: await getVersionQuestions(version!.id),
-    professions,
     profileForm: publicProfileForm(await getProfileForm()),
   };
 }

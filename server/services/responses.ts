@@ -72,13 +72,8 @@ async function insertSubmission(slug: string, input: SubmissionInput): Promise<S
   ]);
   if (!version) throw badRequest("Versão do questionário inválida. Recarregue a página.");
 
-  const profession = await queryOne<{ code: string }>(`SELECT code FROM professional_categories WHERE code = $1 AND active`, [
-    input.profile.profession,
-  ]);
-  if (!profession) throw badRequest("Categoria profissional inválida.");
-  const profileForm = await getProfileForm();
-  const profile = checkProfileAnswers(profileForm, input.profile);
-  if (!profile.ok) throw badRequest(`Opção inválida em "${profileForm.fields[profile.field].label}". Recarregue a página.`);
+  const profile = checkProfileAnswers(await getProfileForm(), input.profile);
+  if (!profile.ok) throw badRequest(profile.message);
 
   const questions: QuestionDef[] = await getVersionQuestions(version.id);
   const answers = validateAnswers(questions, input.answers);
@@ -86,9 +81,8 @@ async function insertSubmission(slug: string, input: SubmissionInput): Promise<S
   return withTransaction(async (client) => {
     const code = anonymousCode();
     const participant = await client.query<{ id: string }>(
-      `INSERT INTO participants (anonymous_code, profession_code, experience_years, simulator_experience, ivent_experience)
-       VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [code, profession.code, profile.values.experienceYears, profile.values.simulatorExperience, profile.values.iventExperience],
+      `INSERT INTO participants (anonymous_code, profession_code, profile_answers) VALUES ($1,$2,$3) RETURNING id`,
+      [code, profile.profession, JSON.stringify(profile.answers)],
     );
     const response = await client.query<{ id: string }>(
       `INSERT INTO survey_responses (survey_id, survey_version_id, ivent_version_id, participant_id, idempotency_key, device_class, started_at)

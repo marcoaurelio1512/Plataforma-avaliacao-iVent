@@ -129,21 +129,33 @@ test("configurações: cadastrar versão do iVent", async ({ page }) => {
   await expect(page.locator("table")).toContainText("iVent 2.0");
 });
 
-test("configurações: editar a tela de perfil e o participante vê a mudança", async ({ page, browser, request }) => {
+test("configurações: tela de perfil — criar, apagar com confirmação e o participante vê a mudança", async ({ page, browser, request }) => {
   await openAdmin(page);
   await page.getByRole("navigation").getByRole("link", { name: "Configurações" }).click();
   await page.getByRole("tab", { name: "Tela de perfil" }).click();
   await page.getByLabel("Título").fill("Seu perfil profissional");
-  const years = page.locator(".profile-field").filter({ has: page.getByRole("heading", { name: "Tempo de experiência" }) });
-  await years.getByRole("button", { name: "Adicionar opção" }).click();
-  await years.getByLabel("Opção 5 de Tempo de experiência").fill("Mais de 10 anos");
-  const ivent = page.locator(".profile-field").filter({ has: page.getByRole("heading", { name: "Experiência prévia com o iVent NeoPed" }) });
-  await ivent.getByLabel("mostrar ao participante").uncheck();
-  await page.getByRole("button", { name: "Salvar" }).click();
-  await expect(page.getByText(/Tela de perfil salva/)).toBeVisible();
-  // Opção salva não tem mais o botão de remover (só pode ser ocultada).
-  await expect(years.getByRole("button", { name: "Remover Mais de 10 anos" })).toHaveCount(0);
+
+  // Nova pergunta de texto, obrigatória.
+  await page.getByRole("button", { name: "Adicionar pergunta", exact: true }).click();
+  const added = page.locator(".profile-field").last();
+  await added.getByLabel("Texto da pergunta").fill("Instituição onde trabalha");
+  await added.getByLabel("Tipo").selectOption("text");
+  await added.getByLabel("obrigatória").check();
+
+  // Apagar uma opção que já tem resposta (o participante do teste escolheu "1–3 anos").
+  const years = page.locator(".profile-field").filter({ has: page.getByRole("heading", { name: /Tempo de experiência/ }) });
+  await years.getByRole("button", { name: "Apagar opção 1–3 anos" }).click();
+  // Apagar uma pergunta sem respostas: não pede confirmação.
+  const ivent = page.locator(".profile-field").filter({ has: page.getByRole("heading", { name: /iVent NeoPed/ }) });
+  await ivent.getByRole("button", { name: "Apagar pergunta" }).click();
+
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText("Opção “1–3 anos” de “Tempo de experiência”");
   await page.screenshot({ path: `${SHOTS}/admin-profile-form.png`, fullPage: true });
+  await confirm.getByRole("button", { name: "Apagar e salvar" }).click();
+  await expect(page.getByText(/Tela de perfil salva/)).toBeVisible();
+  await expect(page.locator(".profile-field").filter({ has: page.getByRole("heading", { name: /iVent NeoPed/ }) })).toHaveCount(0);
 
   const { slug } = await surveySlug(request);
   const ctx = await browser.newContext();
@@ -151,8 +163,14 @@ test("configurações: editar a tela de perfil e o participante vê a mudança",
   await visitor.goto(`/r/${slug}`);
   await visitor.getByRole("button", { name: /Começar/ }).click();
   await expect(visitor.getByRole("heading", { name: "Seu perfil profissional" })).toBeVisible();
-  await expect(visitor.getByRole("radio", { name: "Mais de 10 anos" })).toBeVisible();
+  await expect(visitor.getByRole("radio", { name: "1–3 anos" })).toHaveCount(0);
   await expect(visitor.getByText("Experiência prévia com o iVent NeoPed")).toHaveCount(0);
+  await visitor.getByRole("radio", { name: "Fisioterapeuta" }).click();
+  await visitor.getByRole("button", { name: /Próxima/ }).click();
+  await expect(visitor.getByText("Responda “Instituição onde trabalha” para continuar.")).toBeVisible();
+  await visitor.getByLabel("Instituição onde trabalha").fill("Hospital Universitário");
+  await visitor.getByRole("button", { name: /Próxima/ }).click();
+  await expect(visitor.getByText("Pergunta 1 de 15")).toBeVisible();
   await ctx.close();
 });
 

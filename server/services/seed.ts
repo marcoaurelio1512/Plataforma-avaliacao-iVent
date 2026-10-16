@@ -8,6 +8,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { DEFAULT_PROFESSIONS } from "../../shared/domain.ts";
+import { hasSavedProfileForm } from "./profileForm.ts";
 import { query, queryOne, withTransaction } from "../db.ts";
 import { log } from "../logger.ts";
 import { hashPassword, passwordPolicyError } from "../password.ts";
@@ -23,6 +24,7 @@ export interface SeedResult {
 }
 
 export async function seedProfessions(): Promise<number> {
+  if (await hasSavedProfileForm()) return 0;
   let inserted = 0;
   for (const [position, p] of DEFAULT_PROFESSIONS.entries()) {
     const rows = await query(

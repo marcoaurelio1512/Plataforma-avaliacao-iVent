@@ -1,68 +1,59 @@
 /**
- * Configurações → Tela de perfil: textos da etapa "Conte um pouco sobre você",
- * campos opcionais e suas opções. Opção já salva não se apaga, só se oculta
- * (respostas antigas guardam o código); renomear vale também para o histórico.
+ * Configurações → Tela de perfil: editor completo da etapa "Conte um pouco
+ * sobre você" — textos, perguntas (criar, editar, reordenar, ocultar, apagar)
+ * e opções, incluindo as categorias profissionais. Apagar pergunta ou opção
+ * apaga também as respostas já recebidas; o servidor devolve o impacto e o
+ * administrador confirma antes.
  */
-import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from "lucide-react";
+import { AlertTriangle, Plus, Save } from "lucide-react";
 import { useEffect, useState } from "react";
-import { PROFILE_FIELD_KEYS, type ProfileFieldConfig, type ProfileFieldKey, type ProfileForm } from "../../../shared/profileForm.ts";
+import type { ProfileField, ProfileForm } from "../../../shared/profileForm.ts";
 import { ErrorState, Loading } from "../../components/States.tsx";
-import { api, errorMessage } from "../../lib/api.ts";
+import { ApiError, api, errorMessage } from "../../lib/api.ts";
 import { useAsync } from "../../lib/useAsync.ts";
+import { useScope } from "../scope.tsx";
+import { NEW_OPTION, ProfileQuestionEditor, moved } from "./ProfileQuestionEditor.tsx";
 
 const PATH = "/api/admin/profile-form";
+const NEW_FIELD: ProfileField = { key: "", label: "", type: "single", required: false, enabled: true, options: [NEW_OPTION] };
+const NEW_PROFESSION: NonNullable<ProfileForm["profession"]> = { label: "Categoria profissional", required: true, enabled: true, options: [NEW_OPTION] };
 
-function moved<T>(list: T[], from: number, to: number): T[] {
-  if (to < 0 || to >= list.length) return list;
-  const next = [...list];
-  const [item] = next.splice(from, 1);
-  next.splice(to, 0, item!);
-  return next;
+interface Impact {
+  label: string;
+  answers: number;
 }
 
-function FieldEditor({ id, field, onChange }: { id: ProfileFieldKey; field: ProfileFieldConfig; onChange: (f: ProfileFieldConfig) => void }) {
-  const setOption = (index: number, patch: Partial<ProfileFieldConfig["options"][number]>) =>
-    onChange({ ...field, options: field.options.map((o, i) => (i === index ? { ...o, ...patch } : o)) });
-  const move = (from: number, to: number) => onChange({ ...field, options: moved(field.options, from, to) });
+function impactsOf(err: unknown): Impact[] | null {
+  if (!(err instanceof ApiError) || err.code !== "confirm_deletions") return null;
+  return (err.details as { impacts?: Impact[] } | undefined)?.impacts ?? [];
+}
+
+function ConfirmDeletions({ impacts, saving, onConfirm, onCancel }: { impacts: Impact[]; saving: boolean; onConfirm: () => void; onCancel: () => void }) {
   return (
-    <section className={`panel profile-field${field.enabled ? "" : " is-hidden"}`} aria-labelledby={`pf-${id}-title`}>
-      <div className="row-between">
-        <h3 id={`pf-${id}-title`} className="panel-title">{field.label || "Campo sem nome"}</h3>
-        <label className="checkbox"><input type="checkbox" checked={field.enabled} onChange={(e) => onChange({ ...field, enabled: e.target.checked })} /> mostrar ao participante</label>
+    <div className="alert alert-warning profile-confirm" role="alertdialog" aria-labelledby="pf-confirm-title">
+      <AlertTriangle />
+      <div className="stack-sm grow">
+        <p id="pf-confirm-title"><strong>Esta alteração apaga respostas já recebidas. Não é possível desfazer.</strong></p>
+        <ul className="report-list">
+          {impacts.map((i) => <li key={i.label}>{i.label}: {i.answers} {i.answers === 1 ? "participante perde a resposta" : "participantes perdem a resposta"}</li>)}
+        </ul>
+        <div className="row">
+          <button type="button" className="btn btn-danger" disabled={saving} onClick={onConfirm}>Apagar e salvar</button>
+          <button type="button" className="btn btn-ghost" disabled={saving} onClick={onCancel}>Voltar e revisar</button>
+        </div>
       </div>
-      <div className="field">
-        <label htmlFor={`pf-${id}-label`}>Pergunta exibida</label>
-        <input id={`pf-${id}-label`} className="input" value={field.label} onChange={(e) => onChange({ ...field, label: e.target.value })} />
-      </div>
-      <p className="field-label">Opções</p>
-      <ol className="profile-options">
-        {field.options.map((o, i) => (
-          <li key={o.code || `new-${i}`} className={`profile-option${o.active ? "" : " is-inactive"}`}>
-            <input className="input grow" aria-label={`Opção ${i + 1} de ${field.label}`} value={o.label} placeholder="Nome da opção" onChange={(e) => setOption(i, { label: e.target.value })} />
-            <label className="checkbox"><input type="checkbox" checked={o.active} onChange={(e) => setOption(i, { active: e.target.checked })} /> ativa</label>
-            <span className="row profile-option-actions">
-              <button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={`Subir ${o.label}`} disabled={i === 0} onClick={() => move(i, i - 1)}><ArrowUp /></button>
-              <button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={`Descer ${o.label}`} disabled={i === field.options.length - 1} onClick={() => move(i, i + 1)}><ArrowDown /></button>
-              {!o.code && (
-                <button type="button" className="btn btn-sm btn-ghost btn-icon" aria-label={`Remover ${o.label || "opção nova"}`} onClick={() => onChange({ ...field, options: field.options.filter((_, j) => j !== i) })}><Trash2 /></button>
-              )}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <div>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange({ ...field, options: [...field.options, { code: "", label: "", active: true }] })}><Plus /> Adicionar opção</button>
-      </div>
-    </section>
+    </div>
   );
 }
 
 export function ProfileFormPanel({ onDone }: { onDone: (m: string) => void }) {
+  const { reloadReference } = useScope();
   const state = useAsync((signal) => api<ProfileForm>(PATH, { signal }), []);
   // `saved` é a versão gravada; `form` é o rascunho em edição.
   const [saved, setSaved] = useState<ProfileForm | null>(null);
   const [form, setForm] = useState<ProfileForm | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [impacts, setImpacts] = useState<Impact[] | null>(null);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     setSaved(state.data);
@@ -71,42 +62,83 @@ export function ProfileFormPanel({ onDone }: { onDone: (m: string) => void }) {
   if (state.loading) return <Loading />;
   if (state.error) return <ErrorState error={state.error} />;
   if (!form || !saved) return null;
+
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
-  const save = async () => {
+  const savedKeys = new Set(saved.fields.map((f) => f.key));
+  const setField = (index: number, next: ProfileField) => setForm({ ...form, fields: form.fields.map((f, i) => (i === index ? next : f)) });
+  const offset = form.profession ? 1 : 0;
+
+  const save = async (confirmDeletions = false) => {
     setError(null);
     setSaving(true);
     try {
-      const result = await api<ProfileForm>(PATH, { method: "PUT", body: form });
+      const result = await api<ProfileForm>(PATH, { method: "PUT", body: { ...form, confirmDeletions } });
       setSaved(result);
       setForm(result);
+      setImpacts(null);
+      reloadReference();
       onDone("Tela de perfil salva — já vale para novos participantes");
     } catch (err) {
-      setError(errorMessage(err));
+      const found = impactsOf(err);
+      if (found) setImpacts(found);
+      else setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
   };
+
   return (
     <div className="stack-lg">
       <section className="panel" aria-labelledby="pf-texts">
         <h2 id="pf-texts" className="panel-title">Textos da tela de perfil</h2>
-        <p className="panel-note">Etapa que o participante vê logo depois de começar, antes das perguntas. Vale para todos os questionários.</p>
+        <p className="panel-note">Etapa que o participante vê logo depois de começar, antes das perguntas do questionário. Vale para todos os questionários.</p>
         <div className="field"><label htmlFor="pf-title">Título</label><input id="pf-title" className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
         <div className="field"><label htmlFor="pf-subtitle">Texto de apoio</label><textarea id="pf-subtitle" className="textarea" rows={2} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} /></div>
-        <div className="field">
-          <label htmlFor="pf-prof">Pergunta da categoria profissional (obrigatória)</label>
-          <input id="pf-prof" className="input" value={form.professionLabel} onChange={(e) => setForm({ ...form, professionLabel: e.target.value })} />
-          <span className="panel-note">As opções desta pergunta ficam na aba Categorias profissionais.</span>
-        </div>
       </section>
-      <p className="panel-note">Os campos abaixo são opcionais para o participante. Renomear uma opção atualiza também as respostas antigas nos relatórios; para tirar uma opção do formulário, desmarque “ativa”.</p>
-      {PROFILE_FIELD_KEYS.map((key) => (
-        <FieldEditor key={key} id={key} field={form.fields[key]} onChange={(f) => setForm({ ...form, fields: { ...form.fields, [key]: f } })} />
-      ))}
-      {error && <div className="alert alert-error" role="alert">{error}</div>}
+
+      <section className="stack-sm" aria-labelledby="pf-questions">
+        <h2 id="pf-questions" className="panel-title">Perguntas</h2>
+        <p className="panel-note">Renomear atualiza também as respostas antigas nos relatórios. Para tirar algo do formulário sem perder dados, desmarque “mostrar ao participante” ou “ativa”. <strong>Apagar remove também as respostas já recebidas.</strong></p>
+      </section>
+      <ol className="profile-questions">
+        {form.profession && (
+          <ProfileQuestionEditor
+            id="pf-profession"
+            index={1}
+            question={form.profession}
+            typeLocked
+            badge="Categoria profissional: usada nos filtros, na comparação entre grupos e nos indicadores do dashboard."
+            onChange={(profession) => setForm({ ...form, profession })}
+            onDelete={() => setForm({ ...form, profession: null })}
+          />
+        )}
+        {form.fields.map((field, i) => (
+          <ProfileQuestionEditor
+            key={field.key || `new-${i}`}
+            id={`pf-${field.key || `new-${i}`}`}
+            index={i + 1 + offset}
+            question={field}
+            typeLocked={savedKeys.has(field.key)}
+            onChange={(next) => setField(i, next)}
+            onDelete={() => setForm({ ...form, fields: form.fields.filter((_, j) => j !== i) })}
+            onMove={(delta) => setForm({ ...form, fields: moved(form.fields, i, i + delta) })}
+            isFirst={i === 0}
+            isLast={i === form.fields.length - 1}
+          />
+        ))}
+      </ol>
       <div className="row">
-        <button type="button" className="btn btn-primary" disabled={!dirty || saving} onClick={save}><Save /> {saving ? "Salvando…" : "Salvar"}</button>
-        {dirty && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => { setForm(saved); setError(null); }}>Descartar alterações</button>}
+        <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...form, fields: [...form.fields, NEW_FIELD] })}><Plus /> Adicionar pergunta</button>
+        {!form.profession && (
+          <button type="button" className="btn btn-ghost" onClick={() => setForm({ ...form, profession: NEW_PROFESSION })}><Plus /> Adicionar pergunta de categoria profissional</button>
+        )}
+      </div>
+
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      {impacts && <ConfirmDeletions impacts={impacts} saving={saving} onConfirm={() => save(true)} onCancel={() => setImpacts(null)} />}
+      <div className="row">
+        <button type="button" className="btn btn-primary" disabled={!dirty || saving || Boolean(impacts)} onClick={() => save()}><Save /> {saving ? "Salvando…" : "Salvar"}</button>
+        {dirty && <button type="button" className="btn btn-ghost" disabled={saving} onClick={() => { setForm(saved); setError(null); setImpacts(null); }}>Descartar alterações</button>}
       </div>
     </div>
   );

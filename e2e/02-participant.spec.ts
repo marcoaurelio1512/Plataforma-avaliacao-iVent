@@ -12,7 +12,7 @@ test("participante responde o questionário completo", async ({ page, request },
 
   // Perfil: categoria obrigatória
   await page.getByRole("button", { name: /Próxima/ }).click();
-  await expect(page.getByText("Selecione uma opção em “Categoria profissional”")).toBeVisible();
+  await expect(page.getByText("Responda “Categoria profissional” para continuar.")).toBeVisible();
   await page.getByRole("radio", { name: mobile ? "Médico residente de Neonatologia" : "Fisioterapeuta" }).click();
   await page.getByRole("radio", { name: "1–3 anos" }).click();
   await page.screenshot({ path: `${SHOTS}/${info.project.name}-02-profile.png`, fullPage: true });

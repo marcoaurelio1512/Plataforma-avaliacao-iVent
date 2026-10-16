@@ -4,7 +4,7 @@
  * partem deste mesmo conjunto — os números batem entre as telas e exportações.
  */
 import type { QuestionDef, SpecialAnswer } from "../../shared/domain.ts";
-import type { ProfileForm } from "../../shared/profileForm.ts";
+import { NOT_INFORMED, type ProfileAnswers, type ProfileForm } from "../../shared/profileForm.ts";
 import { query, queryOne } from "../db.ts";
 import { badRequest, notFound } from "../http.ts";
 import type { AnalysisFilters } from "../validation.ts";
@@ -24,11 +24,10 @@ export interface DatasetResponse {
   id: string;
   participantId: string;
   participantCode: string;
+  /** Código da categoria, ou NO_PROFESSION quando a pergunta não existia/foi apagada. */
   profession: string;
   professionLabel: string;
-  experienceYears: string | null;
-  simulatorExperience: string | null;
-  iventExperience: string | null;
+  profileAnswers: ProfileAnswers;
   deviceClass: string | null;
   submittedAt: Date;
   iventVersionId: string | null;
@@ -44,6 +43,20 @@ export interface Dataset {
   filters: AnalysisFilters;
   /** Rótulos atuais do perfil: renomear uma opção vale também para respostas antigas. */
   profileForm: ProfileForm;
+}
+
+export const NO_PROFESSION = "";
+
+/** Nome das colunas de perfil nas exportações (as três perguntas originais mantêm o nome histórico). */
+const LEGACY_CSV_COLUMNS: Record<string, string> = {
+  experienceYears: "tempo_experiencia",
+  simulatorExperience: "experiencia_simuladores",
+  iventExperience: "experiencia_ivent",
+};
+
+/** Perguntas do perfil como colunas de relatório, na ordem do formulário (inclui as ocultas, que têm dados). */
+export function profileColumns(ds: Dataset) {
+  return ds.profileForm.fields.map((field) => ({ field, csvName: LEGACY_CSV_COLUMNS[field.key] ?? `perfil_${field.key}` }));
 }
 
 export async function resolveVersion(surveyId: string, versionId?: string) {
@@ -95,22 +108,20 @@ export async function loadDataset(filters: AnalysisFilters): Promise<Dataset> {
     id: string;
     participant_id: string;
     anonymous_code: string;
-    profession_code: string;
-    profession_label: string;
-    experience_years: string | null;
-    simulator_experience: string | null;
-    ivent_experience: string | null;
+    profession_code: string | null;
+    profession_label: string | null;
+    profile_answers: ProfileAnswers;
     device_class: string | null;
     submitted_at: Date;
     ivent_version_id: string | null;
     ivent_label: string | null;
   }>(
     `SELECT r.id, r.participant_id, p.anonymous_code, p.profession_code, pc.label AS profession_label,
-            p.experience_years, p.simulator_experience, p.ivent_experience, r.device_class, r.submitted_at,
+            p.profile_answers, r.device_class, r.submitted_at,
             r.ivent_version_id, iv.label AS ivent_label
        FROM survey_responses r
        JOIN participants p ON p.id = r.participant_id
-       JOIN professional_categories pc ON pc.code = p.profession_code
+       LEFT JOIN professional_categories pc ON pc.code = p.profession_code
        LEFT JOIN ivent_versions iv ON iv.id = r.ivent_version_id
       WHERE ${conditions.join(" AND ")}
       ORDER BY r.submitted_at`,
@@ -157,11 +168,9 @@ export async function loadDataset(filters: AnalysisFilters): Promise<Dataset> {
       id: r.id,
       participantId: r.participant_id,
       participantCode: r.anonymous_code,
-      profession: r.profession_code,
-      professionLabel: r.profession_label,
-      experienceYears: r.experience_years,
-      simulatorExperience: r.simulator_experience,
-      iventExperience: r.ivent_experience,
+      profession: r.profession_code ?? NO_PROFESSION,
+      professionLabel: r.profession_label ?? NOT_INFORMED,
+      profileAnswers: r.profile_answers ?? {},
       deviceClass: r.device_class,
       submittedAt: r.submitted_at,
       iventVersionId: r.ivent_version_id,

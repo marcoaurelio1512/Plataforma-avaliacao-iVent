@@ -7,17 +7,12 @@ import { PageHeader } from "../components/PageHeader.tsx";
 import { useScope } from "../scope.tsx";
 
 interface Data {
-  participants: { code: string; responseId: string; profession: string; experienceYears: string; simulatorExperience: string; iventExperience: string; deviceClass: string | null; submittedAt: string }[];
-  distributions: Record<"profession" | "experienceYears" | "simulatorExperience" | "iventExperience" | "device", { label: string; n: number }[]>;
+  /** Texto da pergunta de categoria profissional; null se ela não existe e nenhuma resposta tem profissão. */
+  professionLabel: string | null;
+  columns: { key: string; label: string }[];
+  participants: { code: string; responseId: string; profession: string; answers: Record<string, string>; deviceClass: string | null; submittedAt: string }[];
+  distributions: { key: string; title: string; rows: { label: string; n: number }[] }[];
 }
-
-const DIST_TITLES: Record<keyof Data["distributions"], string> = {
-  profession: "Categoria profissional",
-  experienceYears: "Tempo de experiência",
-  simulatorExperience: "Experiência com simuladores",
-  iventExperience: "Experiência com o iVent",
-  device: "Dispositivo usado",
-};
 
 export default function ParticipantsPage() {
   const { query, surveyId } = useScope();
@@ -34,11 +29,11 @@ export default function ParticipantsPage() {
       {d && total > 0 && (
         <>
           <div className="dist-grid">
-            {(Object.keys(DIST_TITLES) as (keyof Data["distributions"])[]).map((k) => (
-              <section key={k} className="panel">
-                <h2 className="panel-title">{DIST_TITLES[k]}</h2>
+            {d.distributions.map((dist) => (
+              <section key={dist.key} className="panel">
+                <h2 className="panel-title">{dist.title}</h2>
                 <ul className="dist-list">
-                  {d.distributions[k].map((row) => (
+                  {dist.rows.map((row) => (
                     <li key={row.label}>
                       <div className="row-between"><span>{row.label}</span><span className="num">{row.n} <span className="dim">({Math.round((row.n / total) * 100)}%)</span></span></div>
                       <div className="dist-bar"><span style={{ transform: `scaleX(${row.n / total})` }} /></div>
@@ -51,12 +46,20 @@ export default function ParticipantsPage() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Código</th><th>Profissão</th><th>Experiência</th><th>Simuladores</th><th>iVent</th><th>Dispositivo</th><th>Enviado em</th></tr>
+                <tr>
+                  <th>Código</th>
+                  {d.professionLabel && <th>{d.professionLabel}</th>}
+                  {d.columns.map((col) => <th key={col.key}>{col.label}</th>)}
+                  <th>Dispositivo</th><th>Enviado em</th>
+                </tr>
               </thead>
               <tbody>
                 {d.participants.map((p) => (
                   <tr key={p.responseId}>
-                    <td className="num">{p.code}</td><td>{p.profession}</td><td>{p.experienceYears}</td><td>{p.simulatorExperience}</td><td>{p.iventExperience}</td><td>{p.deviceClass ?? "—"}</td><td>{dateTime(p.submittedAt)}</td>
+                    <td className="num">{p.code}</td>
+                    {d.professionLabel && <td>{p.profession}</td>}
+                    {d.columns.map((col) => <td key={col.key}>{p.answers[col.key]}</td>)}
+                    <td>{p.deviceClass ?? "—"}</td><td>{dateTime(p.submittedAt)}</td>
                   </tr>
                 ))}
               </tbody>

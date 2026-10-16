@@ -122,12 +122,7 @@ export interface AnswerInput {
   comment?: string | null;
 }
 
-export interface ProfileInput {
-  profession: string;
-  experienceYears?: string | null;
-  simulatorExperience?: string | null;
-  iventExperience?: string | null;
-}
+export type { ProfileInput } from "./profileForm.ts";
 
 export const LIMITS = {
   shortText: 300,
